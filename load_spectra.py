@@ -163,3 +163,12 @@ def mgf_loader(path_list, transform_peaks=True):
                         peaks += line
                         line = f.readline()
                 yield spec_info, peaks
+
+def get_mgf_titles(path_list):
+    '''
+    Return a list of all titles contained in mgf.
+    Can be used to calculate identification rate.
+    '''
+    
+    loader = mgf_loader(path_list, transform_peaks=False)
+    return [x[0]["TITLE"] for x in loader]
