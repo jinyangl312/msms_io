@@ -1,5 +1,8 @@
 import pandas as pd
 import re
+import functools
+from theoretical_peaks.ion_calc import calc_pepmass
+from theoretical_peaks.AAMass import aamass
 
 
 def get_seq_mod_from_pF_res(res_path, keep_columns=['File_Name', 'Sequence', 'Modification', 'Proteins'], rename=True):
@@ -9,9 +12,10 @@ def get_seq_mod_from_pF_res(res_path, keep_columns=['File_Name', 'Sequence', 'Mo
     
     '''
     The columns are like:
-    File_Name	Scan_No	Exp.MH+	Charge	Q-value	Sequence	Calc.MH+	Mass_Shift(Exp.-Calc.)
-    Raw_Score	Final_Score	Modification	Specificity	Proteins	Positions	Label
-    Target/Decoy	Miss.Clv.Sites	Avg.Frag.Mass.Shift	Others
+    'File_Name', 'Scan_No', 'Exp.MH+', 'Charge', 'Q-value', 'Sequence',
+       'Calc.MH+', 'Mass_Shift(Exp.-Calc.)', 'Raw_Score', 'Final_Score',
+       'Modification', 'Specificity', 'Proteins', 'Positions', 'Label',
+       'Target/Decoy', 'Miss.Clv.Sites', 'Avg.Frag.Mass.Shift', 'Others'
     '''
     
     spectra_file = pd.read_csv(res_path, delimiter='\t')
@@ -27,20 +31,70 @@ def get_seq_mod_from_pF_res(res_path, keep_columns=['File_Name', 'Sequence', 'Mo
     return spectra_file
 
 
-def get_seq_mod_from_pL_res(res_path, keep_columns=['Title', 'Linker', 'Peptide', 'Modifications', 'Proteins'], rename=True):
+def get_seq_mod_from_pL_res(res_path, keep_columns=['Title', 'Linker', 'Peptide', 'Modifications', 'Proteins'],
+    rename=True, sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False):
     '''
     Load columns from _spectra.csv text file from pLink results as pd.DataFrame
     '''
 
     """
     The columns are like:
-    Order, Title, Charge, Precursor_Mass, Peptide, Peptide_Type, Linker, Peptide_Mass, Modifications,
-    Evalue, Score, Precursor_Mass_Error(Da), Precursor_Mass_Error(ppm), Proteins, Protein_Type, 
-    FileID, LabelID, Alpha_Matched, Beta_Matched, Alpha_Evalue, Beta_Evalue
+    'Order', 'Title', 'Charge', 'Precursor_Mass', 'Peptide', 'Peptide_Type',
+    'Linker', 'Peptide_Mass', 'Modifications', 'Evalue', 'Score',
+    'Precursor_Mass_Error(Da)', 'Precursor_Mass_Error(ppm)', 'Proteins',
+    'Protein_Type', 'FileID', 'LabelID', 'Alpha_Matched', 'Beta_Matched',
+    'Alpha_Evalue', 'Beta_Evalue', 'Alpha_Seq_Coverage',
+    'Beta_Seq_Coverage'
     """
 
     spectra_file = pd.read_csv(res_path)
     spectra_file = spectra_file[keep_columns].fillna("")
+
+    # Modification in pLink is not sorted by site order. Resort for comparison
+    # between results from different search engine.
+    if sort_modifications:
+        def compare_mods(x, y):
+            return int(re.search("(?<=\()\d+(?=\))", x).group()) - int(re.search("(?<=\()\d+(?=\))", y).group())
+
+        def sort_modifications_by_site(modification):
+            mods = re.split("\;", modification)
+            return ";".join(sorted(mods, key=functools.cmp_to_key(compare_mods)))
+
+        spectra_file["Modifications"] = [sort_modifications_by_site(mod) for mod in spectra_file["Modifications"]]
+    
+    # alpha peptide in pLink is the peptide with higher quality. Resort by mass
+    # for comparison between results from different search engine.
+    if sort_alpha_beta:
+        def sort_alpha_beta_by_mass(peptide, modification):
+            line = re.split("\-|\(|\)", peptide)
+            seq1, site1, seq2, site2 = line[0], line[1], line[3], line[4]
+            if calc_pepmass(seq1) < calc_pepmass(seq2):
+                if not modification == "":
+                    new_mod_list = []
+                    for mod in re.split("\;", modification):
+                        mod_name = re.search(".+(?=\(\d+)", mod).group()
+                        mod_site = int(re.search("(?<=\()\d+(?=\))", mod).group())
+                        if mod_site <= len(seq1):
+                            new_mod_list.append(f"{mod_name}({mod_site+len(seq2)+3})")
+                        else:
+                            new_mod_list.append(f"{mod_name}({mod_site-len(seq1)-3})")
+                    new_mod_list.reverse()
+                    modification = ";".join(new_mod_list)    
+
+                peptide = f'{seq2}({site2})-{seq1}({site1})'
+
+            return peptide, modification  
+
+        spectra_file[["Peptide", "Modifications"]] = [sort_alpha_beta_by_mass(row["Peptide"], row["Modifications"])
+            for _, row in spectra_file.iterrows()]
+
+    # "Precursor_Mass" in pLink is the mass of precursor. Computer exp m/z
+    # for comparison between results from different search engine.
+    if calc_exp_mz:
+        spectra_file[["exp m/z"]] = list(map(
+            lambda x, y: (x - aamass.mass_proton) / y + aamass.mass_proton,
+            spectra_file["Peptide_Mass"], spectra_file["Charge"]))
+
     if rename:
         spectra_file = spectra_file.rename(columns={
             "Title": "title",
@@ -50,8 +104,92 @@ def get_seq_mod_from_pL_res(res_path, keep_columns=['Title', 'Linker', 'Peptide'
             "Proteins": "proteins"
             })
         spectra_file = spectra_file.set_index('title')   
-
     return spectra_file
+
+
+def get_seq_mod_from_xi_res(res_path, format=True, sort_alpha_beta=True, replace_Isoleucine=True):
+    '''
+    Load columns from _CSM_ csv file from xi search results as pd.DataFrame
+    '''
+
+    """
+    The columns are like:
+    'PSMID', 'run', 'scan', 'PeakListFileName', 'ScanId',
+    'exp charge', 'exp m/z', 'exp mass', 'exp fractionalmass',
+    'match charge', 'match mass', 'match fractionalmass',
+    'Protein1', 'Description1', 'Decoy1',
+    'Protein2', 'Description2', 'Decoy2',
+    'PepSeq1', 'PepSeq2', 'PepPos1', 'PepPos2', 'PeptideLength1', 'PeptideLength2',
+    'LinkPos1', 'LinkPos2', 'ProteinLinkPos1', 'ProteinLinkPos2',
+    'Charge', 'Crosslinker', 'CrosslinkerModMass', 'PeptidesWithDoublets',
+    'PeptidesWithStubs', 'minPepCoverage', 'Score',
+    'isDecoy', 'isTT', 'isTD', 'isDD', 'fdrGroup', 'fdr', 'ifdr', 'PEP',
+    'Unnamed: 43', 'PeptidePairFDR', 'Protein1FDR', 'Protein2FDR',
+    'LinkFDR', 'PPIFDR', 'peptide pair id', 'link id', 'ppi id', 'info'
+    """
+
+    spectra_file = pd.read_csv(res_path).fillna("")
+    if format:
+        spectra_file[["Peptide", "Modifications"]] = [convert_xi_format_to_pL_format(row) for _, row in spectra_file.iterrows()]
+    
+    # pLink has converted I to L. Replace I
+    # for comparison between results from different search engine.
+    if replace_Isoleucine:
+        spectra_file["Peptide"] = [x.replace("I", "L") for x in spectra_file["Peptide"]]
+
+    # alpha peptide in pLink is the peptide with higher quality. Resort by mass
+    # for comparison between results from different search engine.
+    if sort_alpha_beta:
+        def sort_alpha_beta_by_mass(peptide, modification):
+            line = re.split("\-|\(|\)", peptide)
+            seq1, site1, seq2, site2 = line[0], line[1], line[3], line[4]
+            if calc_pepmass(seq1) < calc_pepmass(seq2):
+                if not modification == "":
+                    new_mod_list = []
+                    for mod in re.split("\;", modification):
+                        mod_name = re.search(".+(?=\(\d+)", mod).group()
+                        mod_site = int(re.search("(?<=\()\d+(?=\))", mod).group())
+                        if mod_site <= len(seq1):
+                            new_mod_list.append(f"{mod_name}({mod_site+len(seq2)+3})")
+                        else:
+                            new_mod_list.append(f"{mod_name}({mod_site-len(seq1)-3})")
+                    new_mod_list.reverse()
+                    modification = ";".join(new_mod_list)    
+                                    
+                peptide = f'{seq2}({site2})-{seq1}({site1})'
+
+            return peptide, modification  
+
+        spectra_file[["Peptide", "Modifications"]] = [sort_alpha_beta_by_mass(row["Peptide"], row["Modifications"])
+            for _, row in spectra_file.iterrows()]
+    return spectra_file
+
+
+xi_mod_to_pL_mod_dict = {
+    "cm": "Carbamidomethyl",
+    "ox": "Oxidation",
+}
+
+
+def convert_xi_format_to_pL_format(row):
+    sequence1 = "".join(re.findall("[A-Z]", row["PepSeq1"]))
+    sequence2 = "".join(re.findall("[A-Z]", row["PepSeq2"]))
+
+    modification_list = []
+    assert row["PepSeq1"][0] >= "A" and row["PepSeq2"][0] >= "A"
+    for index1, aa in enumerate(re.findall("[A-Z][a-z]*", row["PepSeq1"])):
+        if len(aa) == 1:
+            continue    
+        modification_list.append(f"{xi_mod_to_pL_mod_dict[aa[1:]]}[{aa[0]}]({index1+1})")
+    for index2, aa in enumerate(re.findall("[A-Z][a-z]*", row["PepSeq2"])):
+        if len(aa) == 1:
+            continue    
+        modification_list.append(f"{xi_mod_to_pL_mod_dict[aa[1:]]}[{aa[0]}]({index2+1+len(sequence1)+2+1})")
+
+    return (
+        f'{sequence1}({row["LinkPos1"]})-{sequence2}({row["LinkPos2"]})',
+        ";".join(modification_list)
+    )
 
     
 def get_all_res_from_pL(res_path, keep_columns=['Title', 'Modifications', 'Score', "E-value"]):
@@ -61,12 +199,11 @@ def get_all_res_from_pL(res_path, keep_columns=['Title', 'Modifications', 'Score
 
     """
     The columns are like:
-    Order,Title,Charge,Precursor_MH,
-    Peptide_Type,Peptide,Peptide_MH,
-    Modifications,Refined_Score,SVM_Score,Score,E-value,
-    Precursor_Mass_Error(Da),Precursor_Mass_Error(ppm),
-    Target_Decoy,Q-value,Proteins,Protein_Type,
-    FileID,isComplexSatisfied,isFilterIn
+    'Order', 'Title', 'Charge', 'Precursor_MH', 'Peptide_Type', 'Peptide',
+    'Peptide_MH', 'Modifications', 'Refined_Score', 'SVM_Score', 'Score',
+    'E-value', 'Precursor_Mass_Error(Da)', 'Precursor_Mass_Error(ppm)',
+    'Target_Decoy', 'Q-value', 'Proteins', 'Protein_Type', 'FileID',
+    'isComplexSatisfied', 'isFilterIn'
     """
 
     spectra_file = pd.read_csv(res_path)
