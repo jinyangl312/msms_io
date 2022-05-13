@@ -31,6 +31,64 @@ def get_seq_mod_from_pF_res(res_path, keep_columns=['File_Name', 'Sequence', 'Mo
     return spectra_file
 
 
+def sort_alpha_beta_by_mass(peptide, modification):
+    '''
+    Rearrange the order of alpha and beta peptide. Rearrange modification at the same time.
+    Used for the comparison between search engines.
+    '''
+    
+    line = re.split("\-|\(|\)", peptide)
+    seq1, site1, seq2, site2 = line[0], line[1], line[3], line[4]
+
+    def split_compare_modification(modification, seq1_length):
+        '''
+        Define a comparison for modifications.
+        Return True if the mod str of beta peptide is greater.
+        '''
+
+        if modification == "":
+            return False
+
+        # Split mods
+        seq1_mod_list = []
+        seq2_mod_list = []
+        for mod in re.split("\;", modification):
+            mod_name = re.search(".+(?=\(\d+)", mod).group()
+            mod_site = int(re.search("(?<=\()\d+(?=\))", mod).group())
+            if mod_site <= seq1_length+1:
+                seq1_mod_list.append(f"{mod_name}({mod_site})")
+            else:
+                seq2_mod_list.append(f"{mod_name}({mod_site-seq1_length-3})")
+        # Compare mods
+        return ";".join(seq1_mod_list) < ";".join(seq2_mod_list)
+
+    # alpha peptide: has greater pepmass
+    # If has the same pepmass with beta peptide, choose the one with greater link site
+    # If has the same link site, compare modification string
+    if calc_pepmass(seq1) < calc_pepmass(seq2) or ( # has greater pepmass
+        calc_pepmass(seq1) == calc_pepmass(seq2) and (
+            int(site1) < int(site2) or ( # equal pepmass but with greater link site
+                int(site1) == int(site2) and (
+                    split_compare_modification(modification, len(seq1)))))): # but with greater modification
+        # Rearrange modification for alpha and beta
+        if not modification == "":
+            new_mod_list = []
+            for mod in re.split("\;", modification):
+                mod_name = re.search(".+(?=\(\d+)", mod).group()
+                mod_site = int(re.search("(?<=\()\d+(?=\))", mod).group())
+                if mod_site <= len(seq1):
+                    new_mod_list.append(f"{mod_name}({mod_site+len(seq2)+3})")
+                else:
+                    new_mod_list.append(f"{mod_name}({mod_site-len(seq1)-3})")
+            new_mod_list.reverse()
+            modification = ";".join(new_mod_list)    
+
+        # Rearrange sequence and site for alpha and beta
+        peptide = f'{seq2}({site2})-{seq1}({site1})'
+
+    return peptide, modification  
+    
+
 def get_seq_mod_from_pL_res(res_path, keep_columns=['Title', 'Linker', 'Peptide', 'Modifications', 'Proteins'],
     rename=True, sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False):
     '''
@@ -65,26 +123,6 @@ def get_seq_mod_from_pL_res(res_path, keep_columns=['Title', 'Linker', 'Peptide'
     # alpha peptide in pLink is the peptide with higher quality. Resort by mass
     # for comparison between results from different search engine.
     if sort_alpha_beta:
-        def sort_alpha_beta_by_mass(peptide, modification):
-            line = re.split("\-|\(|\)", peptide)
-            seq1, site1, seq2, site2 = line[0], line[1], line[3], line[4]
-            if calc_pepmass(seq1) < calc_pepmass(seq2):
-                if not modification == "":
-                    new_mod_list = []
-                    for mod in re.split("\;", modification):
-                        mod_name = re.search(".+(?=\(\d+)", mod).group()
-                        mod_site = int(re.search("(?<=\()\d+(?=\))", mod).group())
-                        if mod_site <= len(seq1):
-                            new_mod_list.append(f"{mod_name}({mod_site+len(seq2)+3})")
-                        else:
-                            new_mod_list.append(f"{mod_name}({mod_site-len(seq1)-3})")
-                    new_mod_list.reverse()
-                    modification = ";".join(new_mod_list)    
-
-                peptide = f'{seq2}({site2})-{seq1}({site1})'
-
-            return peptide, modification  
-
         spectra_file[["Peptide", "Modifications"]] = [sort_alpha_beta_by_mass(row["Peptide"], row["Modifications"])
             for _, row in spectra_file.iterrows()]
 
@@ -107,7 +145,7 @@ def get_seq_mod_from_pL_res(res_path, keep_columns=['Title', 'Linker', 'Peptide'
     return spectra_file
 
 
-def get_seq_mod_from_xi_res(res_path, format=True, sort_alpha_beta=True, replace_Isoleucine=True):
+def get_seq_mod_from_xi_res(res_path, format_modification_linksite=True, sort_alpha_beta=True, replace_Isoleucine=True):
     '''
     Load columns from _CSM_ csv file from xi search results as pd.DataFrame
     '''
@@ -129,7 +167,7 @@ def get_seq_mod_from_xi_res(res_path, format=True, sort_alpha_beta=True, replace
     """
 
     spectra_file = pd.read_csv(res_path).fillna("")
-    if format:
+    if format_modification_linksite:
         spectra_file[["Peptide", "Modifications"]] = [convert_xi_format_to_pL_format(row) for _, row in spectra_file.iterrows()]
     
     # pLink has converted I to L. Replace I
@@ -140,28 +178,9 @@ def get_seq_mod_from_xi_res(res_path, format=True, sort_alpha_beta=True, replace
     # alpha peptide in pLink is the peptide with higher quality. Resort by mass
     # for comparison between results from different search engine.
     if sort_alpha_beta:
-        def sort_alpha_beta_by_mass(peptide, modification):
-            line = re.split("\-|\(|\)", peptide)
-            seq1, site1, seq2, site2 = line[0], line[1], line[3], line[4]
-            if calc_pepmass(seq1) < calc_pepmass(seq2):
-                if not modification == "":
-                    new_mod_list = []
-                    for mod in re.split("\;", modification):
-                        mod_name = re.search(".+(?=\(\d+)", mod).group()
-                        mod_site = int(re.search("(?<=\()\d+(?=\))", mod).group())
-                        if mod_site <= len(seq1):
-                            new_mod_list.append(f"{mod_name}({mod_site+len(seq2)+3})")
-                        else:
-                            new_mod_list.append(f"{mod_name}({mod_site-len(seq1)-3})")
-                    new_mod_list.reverse()
-                    modification = ";".join(new_mod_list)    
-                                    
-                peptide = f'{seq2}({site2})-{seq1}({site1})'
-
-            return peptide, modification  
-
         spectra_file[["Peptide", "Modifications"]] = [sort_alpha_beta_by_mass(row["Peptide"], row["Modifications"])
             for _, row in spectra_file.iterrows()]
+
     return spectra_file
 
 
