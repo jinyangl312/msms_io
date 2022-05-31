@@ -47,7 +47,7 @@ def pf2_loader(path_list):
                     spec_info = (specname, nCharge, precursor, max_inten)
                     yield spec_info, peaks
     
-    
+
 def load_whole_pf2(path_list):
     '''
     Return a dict for all experimental spectra from .pf2 binary file
@@ -56,7 +56,7 @@ def load_whole_pf2(path_list):
 
     mpSpec = {}
     for spec_info, peaks in pf2_loader(path_list):
-        mpSpec[spec_info["TITLE"]] = [spec_info, peaks]
+        mpSpec[spec_info["TITLE"]] = (spec_info, peaks)
     return mpSpec
 
     
@@ -117,7 +117,63 @@ def load_whole_mgf(path_list, transform_peaks=True):
 
     mpSpec = {}
     for spec_info, peaks in mgf_loader(path_list, transform_peaks):
-        mpSpec[spec_info["TITLE"]] = [spec_info, peaks]
+        mpSpec[spec_info["TITLE"]] = (spec_info, peaks)
+    return mpSpec
+
+
+def ms1_loader_unit(path, transform_peaks=True):
+    '''
+    Return a generator from .ms1 text file
+    By default if @transform_peaks=True, mz and intensity arrays will be
+    converted to float; otherwise they will be kept as string.
+    '''
+
+    with open(path, "r") as f:
+        while True:
+            # Go to the next line starts with S
+            line = f.readline()
+            if not line: # EOF
+                break
+            while not line[0] == "S":
+                line = f.readline()
+                if not line: # EOF
+                    break
+            if not line:
+                break
+            
+            # Parse headers
+            spec_info = dict()
+            spec_info["scan_no"] = re.split("\t|\n", line)[1]
+            line = f.readline()
+            while line[0] == "I":
+                line = re.split("=|\n", line)
+                spec_info[line[1]] = line[2]
+                line = f.readline()
+            
+            # Parse mz and intensity arrays
+            if transform_peaks:
+                peaks = []
+                for _ in range(spec_info["NumberOfPeaks"]):
+                    line = re.split("\s|\n", line)
+                    peaks.append( (float(line[0]), float(line[1])) )
+                    line = f.readline()
+            else:
+                peaks = ""
+                for _ in range(spec_info["NumberOfPeaks"]):
+                    peaks += line
+                    line = f.readline()
+            yield spec_info, peaks
+
+
+def load_whole_ms1_unit(path, transform_peaks=True):
+    '''
+    Return a dict for all experimental spectra from .mgf text file
+    By default if @transform_peaks=True, mz and intensity arrays will be converted to float; otherwise they will be kept as a string.
+    '''
+
+    mpSpec = {}
+    for spec_info, peaks in ms1_loader_unit(path, transform_peaks):
+        mpSpec[spec_info["scan_no"]] = (spec_info, peaks)
     return mpSpec
 
 
