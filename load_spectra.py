@@ -3,6 +3,7 @@ import os
 import struct
 import re
 from pathlib import Path
+import numpy as np
 
 
 def pf2_loader(path_list):
@@ -72,7 +73,7 @@ def mgf_loader(path_list, transform_peaks=True):
         path_list = path_list.glob('*.mgf')
 
     for path in path_list:
-        print(path)
+        print(path)        
         with open(path, "r") as f:
             while True:
                 # Go to the next "BEGIN IONS"
@@ -115,9 +116,14 @@ def load_whole_mgf(path_list, transform_peaks=True):
     By default if @transform_peaks=True, mz and intensity arrays will be converted to float; otherwise they will be kept as a string.
     '''
 
+    
+    if os.path.exists(f"mgf_dict.npy"):
+        return np.load(f"mgf_dict.npy").item()
+
     mpSpec = {}
     for spec_info, peaks in mgf_loader(path_list, transform_peaks):
         mpSpec[spec_info["TITLE"]] = (spec_info, peaks)
+    np.save(f"mgf_dict.npy", mpSpec)
     return mpSpec
 
 
@@ -171,9 +177,13 @@ def load_whole_ms1_unit(path, transform_peaks=True):
     By default if @transform_peaks=True, mz and intensity arrays will be converted to float; otherwise they will be kept as a string.
     '''
 
+    if os.path.exists(f"{path}.npy"):
+        return np.load(f"{path}.npy").item()
+
     mpSpec = {}
     for spec_info, peaks in ms1_loader_unit(path, transform_peaks):
         mpSpec[spec_info["scan_no"]] = (spec_info, peaks)
+    np.save(f"{path}.npy", mpSpec)
     return mpSpec
 
 
@@ -183,8 +193,13 @@ def get_mgf_titles(path_list):
     Can be used to calculate identification rate.
     '''
     
+    if os.path.exists(f"mgf_titles.npy"):
+        return np.load(f"mgf_titles.npy").item()
+    
     loader = mgf_loader(path_list, transform_peaks=False)
-    return [x[0]["TITLE"] for x in loader]
+    res = [x[0]["TITLE"] for x in loader]
+    np.save(f"mgf_titles.npy", res)
+    return res
 
 
 def get_mgf_headers(path_list):
@@ -193,5 +208,10 @@ def get_mgf_headers(path_list):
     Can be used to check precursor evidence for results.
     '''
     
+    if os.path.exists(f"mgf_headers.npy"):
+        return np.load(f"mgf_headers.npy").item()
+    
     loader = mgf_loader(path_list, transform_peaks=False)
-    return [x[0] for x in loader]
+    res =  [x[0] for x in loader]
+    np.save(f"mgf_headers.npy", res)
+    return res
