@@ -133,6 +133,22 @@ def mgf_loader(path_list, transform_peaks=True):
             yield spec_info, peaks
 
 
+def load_whole_mgf_unit(path, transform_peaks=True):
+    '''
+    Return a dict for all experimental spectra from .mgf text file
+    By default if @transform_peaks=True, mz and intensity arrays will be converted to float; otherwise they will be kept as a string.
+    '''
+
+    if os.path.exists(f"{path}.npy"):
+        return np.load(f"{path}.npy").item()
+    
+    mpSpec = {}
+    for spec_info, peaks in mgf_loader_unit(path, transform_peaks):
+        mpSpec[spec_info["TITLE"]] = (spec_info, peaks)
+    np.save(f"{path}.npy", mpSpec)
+    return mpSpec
+
+
 def load_whole_mgf(path_list, transform_peaks=True):
     '''
     Return a dict for all experimental spectra from .mgf text file
@@ -144,14 +160,9 @@ def load_whole_mgf(path_list, transform_peaks=True):
         assert path_list.is_dir()
         path_list = path_list.glob('*.mgf')
     
-    #if os.path.exists(f"mgf_dict.npy"):
-    #    return np.load(f"mgf_dict.npy").item()
-
     mpSpec = {}
     for path in path_list:
-        for spec_info, peaks in mgf_loader_unit(path, transform_peaks):
-            mpSpec[spec_info["TITLE"]] = (spec_info, peaks)
-    #np.save(f"mgf_dict.npy", mpSpec)
+        mpSpec.update(load_whole_mgf_unit(path, transform_peaks))
     return mpSpec
 
 
