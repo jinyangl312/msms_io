@@ -72,16 +72,17 @@ def sort_alpha_beta_by_mass(peptide, modification):
                     split_compare_modification(modification, len(seq1)))))): # but with greater modification
         # Rearrange modification for alpha and beta
         if not modification == "":
-            new_mod_list = []
+            new_mod_list_1 = []
+            new_mod_list_2 = []
             for mod in re.split("\;", modification):
                 mod_name = re.search(".+(?=\(\d+)", mod).group()
                 mod_site = int(re.search("(?<=\()\d+(?=\))", mod).group())
                 if mod_site <= len(seq1):
-                    new_mod_list.append(f"{mod_name}({mod_site+len(seq2)+3})")
+                    new_mod_list_1.append(f"{mod_name}({mod_site+len(seq2)+3})")
                 else:
-                    new_mod_list.append(f"{mod_name}({mod_site-len(seq1)-3})")
-            new_mod_list.reverse()
-            modification = ";".join(new_mod_list)    
+                    new_mod_list_2.append(f"{mod_name}({mod_site-len(seq1)-3})")
+            new_mod_list = new_mod_list_2 + new_mod_list_1
+            modification = ";".join(new_mod_list)
 
         # Rearrange sequence and site for alpha and beta
         peptide = f'{seq2}({site2})-{seq1}({site1})'
