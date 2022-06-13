@@ -69,7 +69,7 @@ def load_whole_pf2(path_list):
         path_list = path_list.glob('*.pf2')
 
     mpSpec = {}
-    for path in path_list:
+    for path in tqdm.tqdm(path_list):
         for spec_info, peaks in pf2_loader_unit(path):
             mpSpec[spec_info["TITLE"]] = (spec_info, peaks)
     return mpSpec
@@ -128,7 +128,7 @@ def mgf_loader(path_list, transform_peaks=True):
         assert path_list.is_dir()
         path_list = path_list.glob('*.mgf')
     
-    for path in path_list:
+    for path in tqdm.tqdm(path_list):
         for spec_info, peaks in mgf_loader_unit(path):
             yield spec_info, peaks
 
@@ -139,13 +139,13 @@ def load_whole_mgf_unit(path, transform_peaks=True):
     By default if @transform_peaks=True, mz and intensity arrays will be converted to float; otherwise they will be kept as a string.
     '''
 
-    if os.path.exists(f"{path}.npy"):
-        return np.load(f"{path}.npy").item()
+    if os.path.exists(f"{path}{'_t' if transform_peaks else '_k'}.npy"):
+        return np.load(f"{path}{'_t' if transform_peaks else '_k'}.npy", allow_pickle=True).item()
     
     mpSpec = {}
     for spec_info, peaks in mgf_loader_unit(path, transform_peaks):
         mpSpec[spec_info["TITLE"]] = (spec_info, peaks)
-    np.save(f"{path}.npy", mpSpec)
+    np.save(f"{path}{'_t' if transform_peaks else '_k'}.npy", mpSpec)
     return mpSpec
 
 
@@ -161,7 +161,7 @@ def load_whole_mgf(path_list, transform_peaks=True):
         path_list = path_list.glob('*.mgf')
     
     mpSpec = {}
-    for path in path_list:
+    for path in tqdm.tqdm(path_list):
         mpSpec.update(load_whole_mgf_unit(path, transform_peaks))
     return mpSpec
 
@@ -172,13 +172,17 @@ def get_mgf_headers(path_list):
     Can be used to check precursor evidence for results.
     '''
     
-    if os.path.exists(f"mgf_headers.npy"):
-        return np.load(f"mgf_headers.npy").item()
+    if not isinstance(path_list, list):        
+        path_list = Path(path_list)
+        assert path_list.is_dir()
+        path_list = path_list.glob('*.mgf')
     
-    loader = mgf_loader(path_list, transform_peaks=False)
-    res =  [x[0] for x in loader]
-    np.save(f"mgf_headers.npy", res)
-    return res
+    mpSpec = {}
+    for path in tqdm.tqdm(path_list):
+        mpSpec_tmp = load_whole_mgf_unit(path, transform_peaks=False)
+        mpSpec_tmp = {k : v[0] for k, v in mpSpec_tmp.items()}
+        mpSpec.update(mpSpec_tmp)
+    return mpSpec
 
 
 def ms1_loader_unit(path, transform_peaks=True):
@@ -187,39 +191,39 @@ def ms1_loader_unit(path, transform_peaks=True):
     By default if @transform_peaks=True, mz and intensity arrays will be
     converted to float; otherwise they will be kept as string.
     '''
-
+    
     with open(path, "r") as f:
-        while True:
-            # Go to the next line starts with S
+        line = f.readline()
+        # Go to the next line starts with S
+        if not line: # EOF
+            return
+        while not line[0] == "S":
             line = f.readline()
             if not line: # EOF
                 break
-            while not line[0] == "S":
-                line = f.readline()
-                if not line: # EOF
-                    break
+        while True:
             if not line:
-                break
+                return
             
             # Parse headers
             spec_info = dict()
             spec_info["scan_no"] = re.split("\t|\n", line)[1]
             line = f.readline()
             while line[0] == "I":
-                line = re.split("=|\n", line)
+                line = re.split("\t|\n", line)
                 spec_info[line[1]] = line[2]
                 line = f.readline()
             
             # Parse mz and intensity arrays
             if transform_peaks:
                 peaks = []
-                for _ in range(spec_info["NumberOfPeaks"]):
+                for _ in range(int(spec_info["NumberOfPeaks"])):
                     line = re.split("\s|\n", line)
                     peaks.append( (float(line[0]), float(line[1])) )
                     line = f.readline()
             else:
                 peaks = ""
-                for _ in range(spec_info["NumberOfPeaks"]):
+                for _ in range(int(spec_info["NumberOfPeaks"])):
                     peaks += line
                     line = f.readline()
             yield spec_info, peaks
@@ -231,13 +235,13 @@ def load_whole_ms1_unit(path, transform_peaks=True):
     By default if @transform_peaks=True, mz and intensity arrays will be converted to float; otherwise they will be kept as a string.
     '''
 
-    if os.path.exists(f"{path}.npy"):
-        return np.load(f"{path}.npy").item()
+    if os.path.exists(f"{path}{'_t' if transform_peaks else '_k'}.npy"):
+        return np.load(f"{path}{'_t' if transform_peaks else '_k'}.npy", allow_pickle=True).item()
 
     mpSpec = {}
     for spec_info, peaks in ms1_loader_unit(path, transform_peaks):
         mpSpec[spec_info["scan_no"]] = (spec_info, peaks)
-    np.save(f"{path}.npy", mpSpec)
+    np.save(f"{path}{'_t' if transform_peaks else '_k'}.npy", mpSpec)
     return mpSpec
     
 
@@ -253,7 +257,6 @@ def load_whole_ms1(path_list, transform_peaks=True):
         path_list = path_list.glob('*.ms1')
 
     mpSpec = {}
-    for path in path_list:
-        for spec_info, peaks in ms1_loader_unit(path, transform_peaks):
-            mpSpec[spec_info["scan_no"]] = (spec_info, peaks)
+    for path in tqdm.tqdm(path_list):
+        mpSpec[Path(path).stem] = load_whole_ms1_unit(path, transform_peaks)
     return mpSpec
