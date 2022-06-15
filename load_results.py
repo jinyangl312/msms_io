@@ -3,7 +3,7 @@ import re
 import functools
 from theoretical_peaks.ion_calc import calc_pepmass
 from theoretical_peaks.AAMass import aamass
-from xl_utils import *
+from .xl_utils import *
 
 
 def get_PSM_from_pF(res_path, keep_columns=['File_Name', 'Sequence', 'Modification', 'Proteins'], rename=True):
@@ -130,7 +130,7 @@ def get_CSM_from_pL(res_path, keep_columns=['Title', 'Linker', 'Peptide', 'Modif
     # alpha peptide in pLink is the peptide with higher quality. Resort by mass
     # for comparison between results from different search engine.
     if sort_alpha_beta:
-        spectra_file[["Peptide", "Modifications"]] = [sort_alpha_beta(row["Peptide"], row["Modifications"])
+        spectra_file[["Peptide", "Modifications"]] = [sort_alpha_beta_order(row["Peptide"], row["Modifications"])
             for _, row in spectra_file.iterrows()]
 
     # "Precursor_Mass" in pLink is the mass of precursor. Computer exp m/z
@@ -171,7 +171,7 @@ def get_peptides_from_pL(res_path):
     peptides_file.set_axis(
         df.iloc[0][["A", "B", "C", "D", "E", "F"]],
         axis=1, inplace=True)
-    peptides_file = peptides_file.drop(index=0)    
+    peptides_file = peptides_file.drop(index=0).fillna("") 
     
     return peptides_file
 
@@ -195,7 +195,7 @@ def get_sites_from_pL(res_path):
     sites_file.set_axis(
         df.iloc[0][["A", "B", "C", "D", "E"]],
         axis=1, inplace=True)
-    sites_file = sites_file.drop(index=0)    
+    sites_file = sites_file.drop(index=0).fillna("") 
     
     return sites_file
 
@@ -281,6 +281,32 @@ def convert_xi_seq_mod_site_format_to_pL_mixed_format(row):
     )
 
 
+def convert_xi_protein_site_format_to_pL_mixed_format(row):    
+    xi_mod_to_pL_mod_dict = {
+        "cm": "Carbamidomethyl",
+        "ox": "Oxidation",
+    }
+
+    sequence1 = "".join(re.findall("[A-Z]", row["Peptide1"]))
+    sequence2 = "".join(re.findall("[A-Z]", row["Peptide2"]))
+
+    modification_list = []
+    assert row["Peptide1"][0] >= "A" and row["Peptide2"][0] >= "A"
+    for index1, aa in enumerate(re.findall("[A-Z][a-z]*", row["Peptide1"])):
+        if len(aa) == 1:
+            continue    
+        modification_list.append(f"{xi_mod_to_pL_mod_dict[aa[1:]]}[{aa[0]}]({index1+1})")
+    for index2, aa in enumerate(re.findall("[A-Z][a-z]*", row["Peptide2"])):
+        if len(aa) == 1:
+            continue    
+        modification_list.append(f"{xi_mod_to_pL_mod_dict[aa[1:]]}[{aa[0]}]({index2+1+len(sequence1)+2+1})")
+
+    return (
+        f'{sequence1}({row["FromSite"]})-{sequence2}({row["ToSite"]})',
+        ";".join(modification_list)
+    )
+
+
 def get_seq_mod_chg_from_xi(res_path, format_modification_linksite=True, sort_alpha_beta=True,
 replace_Isoleucine=True, add_PSM_id=True):
     '''
@@ -315,7 +341,7 @@ replace_Isoleucine=True, add_PSM_id=True):
     # alpha peptide in pLink is the peptide with higher quality. Resort by mass
     # for comparison between results from different search engine.
     if sort_alpha_beta:
-        spectra_file[["Peptide", "Modifications"]] = [sort_alpha_beta(row["Peptide"], row["Modifications"])
+        spectra_file[["Peptide", "Modifications"]] = [sort_alpha_beta_order(row["Peptide"], row["Modifications"])
             for _, row in spectra_file.iterrows()]
 
     if add_PSM_id:        
@@ -330,3 +356,43 @@ replace_Isoleucine=True, add_PSM_id=True):
             spectra_file["Charge"]))
 
     return spectra_file
+
+
+def get_peptides_from_xi(res_path, format_modification_linksite=True, sort_alpha_beta=True,
+replace_Isoleucine=True):
+    '''
+    Load results from _PeptidePairs_ csv file from xi search results as pd.DataFrame
+    '''
+
+    """
+    The columns are like:
+    PeptidePairID	PSMIDs
+    Protein1	Description1	Decoy1
+    Protein2	Description2	Decoy2
+    Peptide1	Peptide2	Start1	Start2	FromSite
+    ToSite	FromProteinSite	ToProteinSite
+    psmID	Crosslinker	Score	isDecoy
+    isTT	isTD	isDD	fdrGroup	fdr	ifdr	PEP
+
+    Protein1FDR	Protein2FDR	LinkFDR	PPIFDR
+    
+    link id	ppi id
+    ... ...
+    """
+
+    peptides_file = pd.read_csv(res_path).fillna("")
+    if format_modification_linksite:
+        peptides_file[["Peptide", "Modifications"]] = [convert_xi_protein_site_format_to_pL_mixed_format(row) for _, row in peptides_file.iterrows()]
+    
+    # pLink has converted I to L. Replace I
+    # for comparison between results from different search engine.
+    if replace_Isoleucine:
+        peptides_file["Peptide"] = [x.replace("I", "L") for x in peptides_file["Peptide"]]
+
+    # alpha peptide in pLink is the peptide with higher quality. Resort by mass
+    # for comparison between results from different search engine.
+    if sort_alpha_beta:
+        peptides_file[["Peptide", "Modifications"]] = [sort_alpha_beta_order(row["Peptide"], row["Modifications"])
+            for _, row in peptides_file.iterrows()]
+
+    return peptides_file
