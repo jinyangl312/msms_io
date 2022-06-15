@@ -146,7 +146,8 @@ def get_seq_mod_from_pL_res(res_path, keep_columns=['Title', 'Linker', 'Peptide'
     return spectra_file
 
 
-def get_seq_mod_from_xi_res(res_path, format_modification_linksite=True, sort_alpha_beta=True, replace_Isoleucine=True):
+def get_seq_mod_from_xi_res(res_path, format_modification_linksite=True, sort_alpha_beta=True,
+replace_Isoleucine=True, add_PSM_id=True):
     '''
     Load columns from _CSM_ csv file from xi search results as pd.DataFrame
     '''
@@ -181,6 +182,17 @@ def get_seq_mod_from_xi_res(res_path, format_modification_linksite=True, sort_al
     if sort_alpha_beta:
         spectra_file[["Peptide", "Modifications"]] = [sort_alpha_beta_by_mass(row["Peptide"], row["Modifications"])
             for _, row in spectra_file.iterrows()]
+
+    if add_PSM_id:        
+        spectra_file[["scan_id"]] = list(map(
+            lambda x, y: f"{x}.{y}.{y}",
+            spectra_file["run"],
+            spectra_file["scan"]))
+        spectra_file[["PSM_id"]] = list(map(
+            lambda x, y, z: f"{x}.{y}.{y}.{z}",
+            spectra_file["run"],
+            spectra_file["scan"],
+            spectra_file["Charge"]))
 
     return spectra_file
 
