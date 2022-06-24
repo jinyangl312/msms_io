@@ -59,3 +59,21 @@ def sort_alpha_beta_order(mixed_peptide, mixed_modification):
         mixed_peptide = f'{seq2}({site2})-{seq1}({site1})'
 
     return mixed_peptide, mixed_modification  
+
+
+def sort_site_order(mixed_site):
+    '''
+    Rearrange the order of cross-linked sites.
+    '''
+    
+    line = re.split("\-|\(|\)", mixed_site)
+    protein_1, site1, protein_2, site2 = line[0], line[1], line[3], line[4]
+
+    if protein_1 < protein_2 or ( # string order
+        protein_1 == protein_2 and (
+            int(site1) < int(site2))):
+
+        # Rearrange protein and site
+        mixed_site = f'{protein_2}({site2})-{protein_1}({site1})'
+
+    return mixed_site

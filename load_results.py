@@ -96,7 +96,7 @@ def get_unfiltered_CSM_from_pL(res_path, keep_columns=['Title', 'Modifications',
     return spectra_file
 
 
-def get_CSM_from_pL(res_path, keep_columns=['Title', 'Linker', 'Peptide', 'Modifications', 'Proteins'],
+def get_CSM_from_pL(res_path, keep_columns=None,
     rename=True, sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False):
     '''
     Load results from _spectra.csv text file from pLink results as pd.DataFrame
@@ -112,8 +112,9 @@ def get_CSM_from_pL(res_path, keep_columns=['Title', 'Linker', 'Peptide', 'Modif
     'Beta_Seq_Coverage'
     """
 
-    spectra_file = pd.read_csv(res_path)
-    spectra_file = spectra_file[keep_columns].fillna("")
+    spectra_file = pd.read_csv(res_path).fillna("")
+    if keep_columns != None:
+        spectra_file = spectra_file[keep_columns]
 
     # Modification in pLink is not sorted by site order. Resort for comparison
     # between results from different search engine.
