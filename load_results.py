@@ -309,7 +309,7 @@ def convert_xi_protein_site_format_to_pL_mixed_format(row):
 
 
 def get_seq_mod_chg_from_xi(res_path, format_modification_linksite=True, sort_alpha_beta=True,
-replace_Isoleucine=True, add_PSM_id=True):
+replace_Isoleucine=True, add_scan_charge_id=True):
     '''
     Load results from _CSM_ csv file from xi search results as pd.DataFrame
     '''
@@ -345,13 +345,18 @@ replace_Isoleucine=True, add_PSM_id=True):
         spectra_file[["Peptide", "Modifications"]] = [sort_alpha_beta_order(row["Peptide"], row["Modifications"])
             for _, row in spectra_file.iterrows()]
 
-    if add_PSM_id:        
+    if add_scan_charge_id:
         spectra_file[["scan_id"]] = list(map(
             lambda x, y: f"{x}.{y}.{y}",
             spectra_file["run"],
             spectra_file["scan"]))
-        spectra_file[["PSM_id"]] = list(map(
+        spectra_file[["scan_charge_id"]] = list(map(
             lambda x, y, z: f"{x}.{y}.{y}.{z}",
+            spectra_file["run"],
+            spectra_file["scan"],
+            spectra_file["Charge"]))
+        spectra_file[["PSM_id"]] = list(map(
+            lambda x, y, z: f"{x}.{y}.{y}.{z}.0.dta",
             spectra_file["run"],
             spectra_file["scan"],
             spectra_file["Charge"]))
@@ -397,3 +402,25 @@ replace_Isoleucine=True):
             for _, row in peptides_file.iterrows()]
 
     return peptides_file
+
+
+def get_PSM_from_pQ(res_path, keep_columns=None,
+    rename=True, sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False):
+    '''
+    Load results from _spectra.csv text file from pLink results as pd.DataFrame
+    '''
+
+    """
+    The columns are like:
+    Name_MS2	Sequence	Modification	Group_Joint	Score_Identification
+    Intensity_Precursor	Locus_Protein	Description_Protein	Number_Samples
+    Ratio_Sample2/Sample1	Score_Interference	Similarity_IsotopicDIS_Sample1
+    Similarity_IsotopicDIS_Sample2	Intensity_Sample1	Intensity_Sample2
+    WidthEluting_Sample1	WidthEluting_Sample2	Flag_ProteinInfer
+    """
+
+    spectra_file = pd.read_csv(res_path, delimiter="\t").fillna("")
+    if keep_columns != None:
+        spectra_file = spectra_file[keep_columns]
+
+    return spectra_file
