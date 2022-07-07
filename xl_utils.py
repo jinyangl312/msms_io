@@ -71,13 +71,38 @@ def sort_site_order(mixed_line):
         line = re.split("\-|\(|\)", mixed_site)
         protein_1, site1, protein_2, site2 = line[0], line[1], line[3], line[4]
 
-        if protein_1 < protein_2 or ( # string order
+        if protein_1 > protein_2 or ( # string order
             protein_1 == protein_2 and (
-                int(site1) < int(site2))):
+                int(site1) > int(site2))):
 
             # Rearrange protein and site
             res.append(f'{protein_2}({site2})-{protein_1}({site1})/')
         else:
             res.append(f'{mixed_site}/')
+    if len(res) > 1:
+        res.sort()
+
+    return "".join(res)
+
+
+def sort_protein_order(mixed_line):
+    '''
+    Rearrange the order of cross-linked proteins.
+    '''
+    
+    res = set()
+    for mixed_site in mixed_line.strip("/").split("/"):
+        line = re.split("\-", mixed_site)
+        protein_1, protein_2 = line[0], line[1]
+
+        if protein_1 > protein_2: # string order
+            # Rearrange protein and site
+            res.add(f'{protein_2}-{protein_1}/')
+        else:
+            res.add(f'{mixed_site}/')
+    
+    res = list(res)
+    if len(res) > 1:
+        res.sort()
 
     return "".join(res)
