@@ -4,6 +4,7 @@ import struct
 import re
 from pathlib import Path
 import numpy as np
+from peaks_scripts.sequence_set import SequentialSet
 
 
 def pf2_loader_unit(path):
@@ -166,23 +167,67 @@ def load_whole_mgf(path_list, transform_peaks=True):
     return mpSpec
 
 
-def get_mgf_headers(path_list):
-    '''
-    Return a list of all headers contained in mgf.
-    Can be used to check precursor evidence for results.
-    '''
+class get_mgf_headers:
+    def __init__(self, path_list, relative_error=10e-6, mixed_spectra=True):
+        '''
+        Return a list of all headers contained in mgf.
+        Can be used to check precursor evidence for results.
+        '''
     
-    if not isinstance(path_list, list):        
-        path_list = Path(path_list)
-        assert path_list.is_dir()
-        path_list = path_list.glob('*.mgf')
-    
-    mpSpec = {}
-    for path in tqdm.tqdm(path_list):
-        mpSpec_tmp = load_whole_mgf_unit(path, transform_peaks=False)
-        mpSpec_tmp = {k : v[0] for k, v in mpSpec_tmp.items()}
-        mpSpec.update(mpSpec_tmp)
-    return mpSpec
+        if not isinstance(path_list, list):        
+            path_list = Path(path_list)
+            assert path_list.is_dir()
+            path_list = path_list.glob('*.mgf')
+        
+        self.mpSpec = {}
+        for path in tqdm.tqdm(path_list, desc='Loading'):
+            mpSpec_tmp = load_whole_mgf_unit(path, transform_peaks=False)
+            mpSpec_tmp = {k : v[0] for k, v in mpSpec_tmp.items()}
+            self.mpSpec.update(mpSpec_tmp)
+            
+        # Build up precursor info dict
+        self.scan_headers_dict = dict()
+        self.scan_charge_headers_dict = dict()
+        if mixed_spectra:
+            for header in self.mpSpec.values():
+                scan_charge_id = re.search(".*?\.\d+\.\d+\.\d+(?=\.\d+\.dta)", header["TITLE"]).group()
+                scan_id = re.search(".*?\.\d+\.\d+(?=\.\d+\.\d+\.dta)", header["TITLE"]).group()
+                if scan_charge_id in self.scan_headers_dict:
+                    self.scan_headers_dict[scan_charge_id].append(float(header["PEPMASS"]))
+                else:
+                    self.scan_headers_dict[scan_charge_id] = [float(header["PEPMASS"])]
+                if scan_id in self.scan_charge_headers_dict:
+                    self.scan_charge_headers_dict[scan_id].append(float(header["PEPMASS"]))
+                else:
+                    self.scan_charge_headers_dict[scan_id] = [float(header["PEPMASS"])]
+        else:
+            for header in self.mpSpec.values():
+                scan_charge_id = re.search(".*?\.\d+\.\d+\.\d+(?=\.dta)", header["TITLE"]).group()
+                scan_id = re.search(".*?\.\d+\.\d+(?=\.\d+\.dta)", header["TITLE"]).group()
+                if scan_charge_id in self.scan_headers_dict:
+                    self.scan_headers_dict[scan_charge_id].append(float(header["PEPMASS"]))
+                else:
+                    self.scan_headers_dict[scan_charge_id] = [float(header["PEPMASS"])]
+                if scan_id in self.scan_charge_headers_dict:
+                    self.scan_charge_headers_dict[scan_id].append(float(header["PEPMASS"]))
+                else:
+                    self.scan_charge_headers_dict[scan_id] = [float(header["PEPMASS"])]
+        print(len(self.scan_headers_dict))
+        print(len(self.scan_charge_headers_dict))
+
+        for k, v in self.scan_headers_dict.items():
+            self.scan_headers_dict[k] = SequentialSet(v)
+            self.scan_headers_dict[k].set_relative_error(relative_error)        
+        for k, v in self.scan_charge_headers_dict.items():
+            self.scan_charge_headers_dict[k] = SequentialSet(v)
+            self.scan_charge_headers_dict[k].set_relative_error(relative_error)
+        return
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        return
 
 
 def ms1_loader_unit(path, transform_peaks=True):
@@ -245,18 +290,32 @@ def load_whole_ms1_unit(path, transform_peaks=True):
     return mpSpec
     
 
-def load_whole_ms1(path_list, transform_peaks=True):
-    '''
-    Return a dict for all experimental spectra from .mgf text file
-    By default if @transform_peaks=True, mz and intensity arrays will be converted to float; otherwise they will be kept as a string.
-    '''
+class load_whole_ms1:
+    def __init__(self, path_list, relative_error=10e-6, transform_peaks=True):
+        '''
+        Return a dict for all experimental spectra from .mgf text file
+        By default if @transform_peaks=True, mz and intensity arrays will be converted to float; otherwise they will be kept as a string.
+        '''
 
-    if not isinstance(path_list, list):        
-        path_list = Path(path_list)
-        assert path_list.is_dir()
-        path_list = path_list.glob('*.ms1')
+        if not isinstance(path_list, list):        
+            path_list = Path(path_list)
+            assert path_list.is_dir()
+            path_list = path_list.glob('*.ms1')
 
-    mpSpec = {}
-    for path in tqdm.tqdm(path_list):
-        mpSpec[Path(path).stem] = load_whole_ms1_unit(path, transform_peaks)
-    return mpSpec
+        self.mpSpec = {}
+        for path in tqdm.tqdm(path_list, desc='Loading'):
+            self.mpSpec[Path(path).stem] = load_whole_ms1_unit(path, transform_peaks)
+            
+        for _, ms1_unit_dict in tqdm.tqdm(self.mpSpec.items(), desc='Processing'):
+            for scan_no, ms1_spec in ms1_unit_dict.items():
+                ms1_unit_dict[scan_no] = SequentialSet(np.array(ms1_spec[1])[:, 0])
+                ms1_unit_dict[scan_no].set_relative_error(relative_error)
+        return
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        return
+
+
