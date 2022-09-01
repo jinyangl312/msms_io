@@ -41,5 +41,5 @@ def variate_mgf_precursor_mass(input_list_dir, output_dir):
                 for i in range(0, 3):
                     spec_info_new = spec_info.copy()
                     spec_info_new["TITLE"] = f'{spec_info_new["TITLE"].split(".dta")[0]}.{i}.dta'
-                    spec_info_new["PEPMASS"] = "{}".format(spec_info["PEPMASS"]-i*aamass.mass_proton/charge)
+                    spec_info_new["PEPMASS"] = "{}".format(spec_info["PEPMASS"] - i * aamass.mass_isotope / charge)
                     write_mgf(fout, spec_info_new, peaks)
