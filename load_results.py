@@ -3,7 +3,8 @@ import re
 import functools
 from theoretical_peaks.ion_calc import calc_pepmass
 from theoretical_peaks.AAMass import aamass
-from .xl_utils import *
+from .utils.xl_utils import *
+from .utils.proteins import *
 
 
 def get_PSM_from_pF(res_path, keep_columns=['File_Name', 'Sequence', 'Modification', 'Proteins'], rename=True):

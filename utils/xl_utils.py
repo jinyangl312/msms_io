@@ -106,3 +106,11 @@ def sort_protein_order(mixed_line):
         res.sort()
 
     return "".join(res)
+
+
+def split_xl_protein(proteins_line):
+    return re.sub("\-", "/", proteins_line)
+
+
+def rmv_xl_site(proteins_line):
+    return re.sub("\(\d+\)", "", proteins_line)
