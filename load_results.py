@@ -97,7 +97,8 @@ def get_unfiltered_CSM_from_pL(res_path, keep_columns=['Title', 'Modifications',
 
 
 def get_CSM_from_pL(res_path, keep_columns=None,
-    rename=True, sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False):
+    rename=True, sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False,
+    filter_1_scan=False):
     '''
     Load results from _spectra.csv text file from pLink results as pd.DataFrame
     '''
@@ -115,6 +116,29 @@ def get_CSM_from_pL(res_path, keep_columns=None,
     spectra_file = pd.read_csv(res_path).fillna("")
     if keep_columns != None:
         spectra_file = spectra_file[keep_columns]
+
+    # Keep 1 PSM for 1 scan
+    # from pzm
+    if filter_1_scan:
+        spectra_file['raw_scan'] = spectra_file['Title'].apply(lambda x:'.'.join(x.split('.')[:-4]))
+
+        ls_rawscan = []
+        ls_1scan_filter = []
+
+        for i in range(spectra_file.shape[0]):
+            ser = spectra_file.iloc[i]
+            raw_scan = ser['raw_scan']
+            if raw_scan in ls_rawscan:
+                ls_1scan_filter.append(0)
+            else:
+                ls_rawscan.append(raw_scan)
+                ls_1scan_filter.append(1)
+
+        spectra_file['1scan_filter'] = ls_1scan_filter
+        print('Droping duplicated PSMs in the same scan: ', len(spectra_file[spectra_file['1scan_filter']==0]))
+        spectra_file = spectra_file[spectra_file['1scan_filter']==1]
+        spectra_file.drop(columns=['raw_scan', '1scan_filter'], inplace=True)
+
 
     # Modification in pLink is not sorted by site order. Resort for comparison
     # between results from different search engine.
