@@ -6,7 +6,8 @@ from theoretical_peaks.AAMass import aamass
 from .utils.xl_utils import *
 
 
-def get_PSM_from_pF(res_path, keep_columns=['File_Name', 'Sequence', 'Modification', 'Proteins'], rename=True):
+def get_PSM_from_pF(res_path,# keep_columns=['File_Name', 'Sequence', 'Modification', 'Proteins'], 
+rename=False):
     '''
     Load columns from .spectra text file from pFind results as pd.DataFrame
     '''
@@ -20,7 +21,7 @@ def get_PSM_from_pF(res_path, keep_columns=['File_Name', 'Sequence', 'Modificati
     '''
     
     spectra_file = pd.read_csv(res_path, delimiter='\t')
-    spectra_file = spectra_file[keep_columns].fillna("")
+    #spectra_file = spectra_file[keep_columns].fillna("")
     if rename:
         spectra_file = spectra_file.rename(columns={
             "File_Name": "title", 
@@ -30,6 +31,49 @@ def get_PSM_from_pF(res_path, keep_columns=['File_Name', 'Sequence', 'Modificati
             })
         spectra_file = spectra_file.set_index('title')
     return spectra_file
+
+
+def get_protein_from_pF(res_path, filter=True, keep_subset=True):
+    '''
+    Load columns from .protein tsv file from pFind results as pd.DataFrame
+    '''
+
+    """
+    The columns are like:
+    ID	AC	Score	Q-Value	Coverage	No.Peptide	No.Sameset	No.Subset	Have_Distinct_Pep	Description
+	    	ID	Sequence	Calc.MH+	Mass_Shift(Exp.-Calc.)	Raw_Score	Final_Score	Modification	Specificity	Proteins	Positions	Label	Target/Decoy	Miss.Clv.Sites	Avg.Frag.Mass.Shift	File_Name	Charge	Spec_Num
+    """
+    
+    df = pd.read_csv(
+        res_path,
+        delimiter="\t",
+        names = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S"])
+    
+    # rmv splitter lines
+    df.set_index(keys="A", inplace=True)
+    df = df.loc[:"----Summary----"].iloc[:-1]
+    if filter:
+        df = df.loc[:"----------------------------------------"].iloc[:-1]
+    else:
+        df = df.loc[:"----------------------------------------"].iloc[:-1].append(
+            df.loc["----------------------------------------":].iloc[1:]
+        )
+    df = df.reset_index()
+    
+    if keep_subset:
+        proteins = df[~df["B"].isna()][["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]]
+        proteins.set_axis(
+            df.iloc[0][["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]],
+            axis=1, inplace=True)
+        proteins = proteins.drop(index=0)
+    else:
+        proteins = df[~df["A"].isna()][["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]]
+        proteins.set_axis(
+            df.iloc[0][["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]],
+            axis=1, inplace=True)
+        proteins = proteins.drop(index=0)
+    
+    return proteins
 
 
 def get_summary_from_pF(res_path):
@@ -97,7 +141,7 @@ def get_unfiltered_CSM_from_pL(res_path, keep_columns=['Title', 'Modifications',
 
 
 def get_CSM_from_pL(res_path, keep_columns=None,
-    rename=True, sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False,
+    rename=False, sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False,
     filter_1_scan=False):
     '''
     Load results from _spectra.csv text file from pLink results as pd.DataFrame
@@ -429,7 +473,7 @@ replace_Isoleucine=True):
 
 
 def get_PSM_from_pQ(res_path, keep_columns=None,
-    rename=True, sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False):
+    sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False):
     '''
     Load results from _spectra.csv text file from pLink results as pd.DataFrame
     '''
@@ -446,5 +490,7 @@ def get_PSM_from_pQ(res_path, keep_columns=None,
     spectra_file = pd.read_csv(res_path, delimiter="\t").fillna("")
     if keep_columns != None:
         spectra_file = spectra_file[keep_columns]
+    spectra_file = spectra_file[spectra_file["Name_MS2"] != "Name_MS2"] # redudant label in pQuant results
+    spectra_file["Ratio_Sample2/Sample1"] = spectra_file["Ratio_Sample2/Sample1"].apply(float)
 
     return spectra_file
