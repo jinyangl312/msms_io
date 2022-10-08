@@ -5,27 +5,8 @@ from theoretical_peaks.AAMass import aamass
 from .xl_utils import *
 
 
-def get_unfiltered_CSM_from_pL(res_path, keep_columns=['Title', 'Modifications', 'Score', "E-value"]):
-    '''
-    Load all unfiltered results
-    '''
-
-    """
-    The columns are like:
-    'Order', 'Title', 'Charge', 'Precursor_MH', 'Peptide_Type', 'Peptide',
-    'Peptide_MH', 'Modifications', 'Refined_Score', 'SVM_Score', 'Score',
-    'E-value', 'Precursor_Mass_Error(Da)', 'Precursor_Mass_Error(ppm)',
-    'Target_Decoy', 'Q-value', 'Proteins', 'Protein_Type', 'FileID',
-    'isComplexSatisfied', 'isFilterIn'
-    """
-
-    spectra_file = pd.read_csv(res_path)
-    spectra_file = spectra_file[keep_columns].fillna("")
-    return spectra_file
-
-
-def get_CSM_from_pL(res_path, keep_columns=None,
-    rename=False, sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False,
+def load_spectra_from_pL(res_path, 
+    sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False,
     filter_1_scan=False):
     '''
     Load results from _spectra.csv text file from pLink results as pd.DataFrame
@@ -41,9 +22,16 @@ def get_CSM_from_pL(res_path, keep_columns=None,
     'Beta_Seq_Coverage'
     """
 
+    """
+    For all.csv, the columns are like:
+    'Order', 'Title', 'Charge', 'Precursor_MH', 'Peptide_Type', 'Peptide',
+    'Peptide_MH', 'Modifications', 'Refined_Score', 'SVM_Score', 'Score',
+    'E-value', 'Precursor_Mass_Error(Da)', 'Precursor_Mass_Error(ppm)',
+    'Target_Decoy', 'Q-value', 'Proteins', 'Protein_Type', 'FileID',
+    'isComplexSatisfied', 'isFilterIn'
+    """
+
     spectra_file = pd.read_csv(res_path).fillna("")
-    if keep_columns != None:
-        spectra_file = spectra_file[keep_columns]
 
     # Keep 1 PSM for 1 scan
     # from pzm
@@ -93,15 +81,6 @@ def get_CSM_from_pL(res_path, keep_columns=None,
             lambda x, y: (x - aamass.mass_proton) / y + aamass.mass_proton,
             spectra_file["Peptide_Mass"], spectra_file["Charge"]))
 
-    if rename:
-        spectra_file = spectra_file.rename(columns={
-            "Title": "title",
-            "Peptide": "sequence",
-            "Modifications": "modinfo",
-            "Linker": "linker",
-            "Proteins": "proteins"
-            })
-        spectra_file = spectra_file.set_index('title')   
     return spectra_file
 
 
