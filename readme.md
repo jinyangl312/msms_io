@@ -7,5 +7,3 @@
 `write_spectra.py`: Tools for the write of .mgf
 
 `load_results.py`: Tools for the read of pFind results (.spectra .summary), pLink results (.csv CSM peptide & site.txt summary), pQuant results (.list PSM), xiSEARCH results (.csv CSM peptide)
-
-`xl_utils.py`: Tools for the formation of cross-linked results
