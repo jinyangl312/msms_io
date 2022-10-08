@@ -114,3 +114,8 @@ def split_xl_protein(proteins_line):
 
 def rmv_xl_site(proteins_line):
     return re.sub("\(\d+\)", "", proteins_line)
+
+
+def is_intra_protein(mixed_protein):
+    line = re.split("\-\/", mixed_protein)
+    return line[0] == line[1]
