@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-def load_spectra_from_pQ(res_path):
+def load_spectra_pQ(res_path):
     '''
     Load results from _spectra.csv text file from pLink results as pd.DataFrame
     '''

@@ -6,7 +6,7 @@ from .xl_utils import *
 from .utils import *
 
 
-def load_spectra_from_pL(res_path, evaluation_scaffold=False,
+def load_spectra_pL(res_path, evaluation_scaffold=False,
     sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False,
     filter_1_scan=False, keep_target=False):
     '''
@@ -109,7 +109,7 @@ def load_spectra_from_pL(res_path, evaluation_scaffold=False,
     return spectra_file
 
 
-def get_peptides_from_pL(res_path):
+def load_peptides_pL(res_path):
     '''
     Load results from _peptides.csv text file from pLink results as pd.DataFrame
     '''
@@ -133,7 +133,7 @@ def get_peptides_from_pL(res_path):
     return peptides_file
 
 
-def get_sites_from_pL(res_path):
+def load_sites_pL(res_path):
     '''
     Load results from _sites.csv text file from pLink results as pd.DataFrame
     '''
@@ -157,7 +157,7 @@ def get_sites_from_pL(res_path):
     return sites_file
 
 
-def get_summary_from_pL(res_path):
+def load_summary_pL(res_path):
     '''
     Read the .summary file in pLink results
     '''

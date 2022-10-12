@@ -54,7 +54,7 @@ def convert_xi_protein_site_format_to_pL_mixed_format(row):
     )
 
 
-def get_precursor_from_xi(res_path, format_modification_linksite=True, sort_alpha_beta=True,
+def load_precursor_xi(res_path, format_modification_linksite=True, sort_alpha_beta=True,
 replace_Isoleucine=True, add_scan_charge_id=True):
     '''
     Load results from _CSM_ csv file from xi search results as pd.DataFrame
@@ -110,7 +110,7 @@ replace_Isoleucine=True, add_scan_charge_id=True):
     return spectra_file
 
 
-def get_peptides_from_xi(res_path, format_modification_linksite=True, sort_alpha_beta=True,
+def load_peptides_xi(res_path, format_modification_linksite=True, sort_alpha_beta=True,
 replace_Isoleucine=True):
     '''
     Load results from _PeptidePairs_ csv file from xi search results as pd.DataFrame

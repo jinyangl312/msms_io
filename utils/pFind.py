@@ -2,7 +2,7 @@ import pandas as pd
 import re
 from .utils import *
 
-def load_spectra_from_pF(res_path, evaluation_scaffold=False, filtered=True, keep_target=True):
+def load_spectra_pF(res_path, evaluation_scaffold=False, is_filtered=True, keep_target=True):
     '''
     Load columns from .spectra text file from pFind results as pd.DataFrame
     '''
@@ -16,7 +16,7 @@ def load_spectra_from_pF(res_path, evaluation_scaffold=False, filtered=True, kee
     '''
     
     spectra_file = pd.read_csv(res_path, delimiter='\t')
-    if not filtered:
+    if not is_filtered:
         spectra_file = spectra_file[spectra_file["Q-value"].apply(lambda x: x < 1)]
     if keep_target:
         spectra_file = spectra_file[spectra_file["Target/Decoy"].apply(lambda x: x == "target")]
@@ -35,7 +35,7 @@ def load_spectra_from_pF(res_path, evaluation_scaffold=False, filtered=True, kee
     return spectra_file
 
 
-def load_protein_from_pF(res_path, keep_filtered_only=True, keep_subset=True):
+def load_protein_pF(res_path, keep_filtered_only=True, keep_subset=True):
     '''
     Load columns from .protein tsv file from pFind results as pd.DataFrame
     '''
@@ -78,7 +78,7 @@ def load_protein_from_pF(res_path, keep_filtered_only=True, keep_subset=True):
     return proteins
 
 
-def load_summary_from_pF(res_path):
+def load_summary_pF(res_path):
     '''
     Read the .summary file in pFind results
     '''
