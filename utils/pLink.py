@@ -3,11 +3,12 @@ import re
 import functools
 from theoretical_peaks.AAMass import aamass
 from .xl_utils import *
+from .utils import *
 
 
-def load_spectra_from_pL(res_path, 
+def load_spectra_from_pL(res_path, evaluation_scaffold=False,
     sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False,
-    filter_1_scan=False):
+    filter_1_scan=False, keep_target=False):
     '''
     Load results from _spectra.csv text file from pLink results as pd.DataFrame
     '''
@@ -32,6 +33,30 @@ def load_spectra_from_pL(res_path,
     """
 
     spectra_file = pd.read_csv(res_path).fillna("")
+
+    if evaluation_scaffold:
+        spectra_file["_scan_id"] = spectra_file["Title"].apply(
+            lambda x: re.search("(?<=^).*?\.\d+\.\d+(?=\.\d+\.\d+\.dta\;?)", x).group())
+        spectra_file["_scan_charge_id"] = spectra_file["Title"].apply(
+            lambda x: re.search("(?<=^).*?\.\d+\.\d+\.\d+(?=\.\d+\.dta\;?)", x).group())
+        spectra_file["_PSM_id"] = spectra_file["Title"]
+        
+        spectra_file["_rp"] = spectra_file["Proteins"].apply(
+            lambda x: ";".join(set(
+                filter(not_empty, re.split("/", x)))))
+        spectra_file["_site"] = spectra_file["_rp"].apply(
+            lambda x: ";".join(set(
+                filter(not_empty, re.split(";|-", x)))))
+        spectra_file["_ppi"] = spectra_file["_rp"].apply(rmv_xl_site)
+        spectra_file["_protein"] = spectra_file["_ppi"].apply(
+            lambda x: ";".join(set(filter(not_empty,
+                [i.strip() for i in re.split(";|-", x)]))))
+
+    if keep_target:
+        try:
+            spectra_file = spectra_file[spectra_file["Target_Decoy"] == 2]
+        except:
+            pass
 
     # Keep 1 PSM for 1 scan
     # from pzm

@@ -1,7 +1,8 @@
 import pandas as pd
 import re
+from .utils import *
 
-def load_spectra_from_pF(res_path, filtered=True, keep_target=True):
+def load_spectra_from_pF(res_path, evaluation_scaffold=False, filtered=True, keep_target=True):
     '''
     Load columns from .spectra text file from pFind results as pd.DataFrame
     '''
@@ -19,6 +20,17 @@ def load_spectra_from_pF(res_path, filtered=True, keep_target=True):
         spectra_file = spectra_file[spectra_file["Q-value"].apply(lambda x: x < 1)]
     if keep_target:
         spectra_file = spectra_file[spectra_file["Target/Decoy"].apply(lambda x: x == "target")]
+
+    if evaluation_scaffold:
+        spectra_file["_scan_id"] = spectra_file["File_Name"].apply(
+            lambda x: re.search("(?<=^).*?\.\d+\.\d+(?=\.\d+\.\d+\.dta\;?)", x).group())
+        spectra_file["_scan_charge_id"] = spectra_file["File_Name"].apply(
+            lambda x: re.search("(?<=^).*?\.\d+\.\d+\.\d+(?=\.\d+\.dta\;?)", x).group())
+        spectra_file["_PSM_id"] = spectra_file["File_Name"]
+        
+        spectra_file["_protein"] = spectra_file["Proteins"].apply(
+            lambda x: ";".join(set(
+                filter(not_empty, re.split("/", x)))))
 
     return spectra_file
 
