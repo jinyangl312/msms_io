@@ -188,39 +188,50 @@ class get_mgf_headers:
         # Build up precursor info dict
         self.scan_headers_dict = dict()
         self.scan_charge_headers_dict = dict()
+        self.PSM_headers_dict = dict()
         if mixed_spectra:
             for header in self.mpSpec.values():
-                scan_charge_id = re.search(".*?\.\d+\.\d+\.\d+(?=\.\d+\.dta)", header["TITLE"]).group()
+                self.PSM_headers_dict[header["TITLE"]] = [float(header["PEPMASS"])]
+
                 scan_id = re.search(".*?\.\d+\.\d+(?=\.\d+\.\d+\.dta)", header["TITLE"]).group()
-                if scan_charge_id in self.scan_headers_dict:
-                    self.scan_headers_dict[scan_charge_id].append(float(header["PEPMASS"]))
+                if scan_id in self.scan_headers_dict:
+                    self.scan_headers_dict[scan_id].append(float(header["PEPMASS"]))
                 else:
-                    self.scan_headers_dict[scan_charge_id] = [float(header["PEPMASS"])]
-                if scan_id in self.scan_charge_headers_dict:
-                    self.scan_charge_headers_dict[scan_id].append(float(header["PEPMASS"]))
+                    self.scan_headers_dict[scan_id] = [float(header["PEPMASS"])]
+
+                scan_charge_id = re.search(".*?\.\d+\.\d+\.\d+(?=\.\d+\.dta)", header["TITLE"]).group()
+                if scan_charge_id in self.scan_charge_headers_dict:
+                    self.scan_charge_headers_dict[scan_charge_id].append(float(header["PEPMASS"]))
                 else:
-                    self.scan_charge_headers_dict[scan_id] = [float(header["PEPMASS"])]
+                    self.scan_charge_headers_dict[scan_charge_id] = [float(header["PEPMASS"])]
         else:
             for header in self.mpSpec.values():
-                scan_charge_id = re.search(".*?\.\d+\.\d+\.\d+(?=\.dta)", header["TITLE"]).group()
-                scan_id = re.search(".*?\.\d+\.\d+(?=\.\d+\.dta)", header["TITLE"]).group()
-                if scan_charge_id in self.scan_headers_dict:
-                    self.scan_headers_dict[scan_charge_id].append(float(header["PEPMASS"]))
-                else:
-                    self.scan_headers_dict[scan_charge_id] = [float(header["PEPMASS"])]
-                if scan_id in self.scan_charge_headers_dict:
-                    self.scan_charge_headers_dict[scan_id].append(float(header["PEPMASS"]))
-                else:
-                    self.scan_charge_headers_dict[scan_id] = [float(header["PEPMASS"])]
-        print(len(self.scan_headers_dict))
-        print(len(self.scan_charge_headers_dict))
+                self.PSM_headers_dict[header["TITLE"]] = [float(header["PEPMASS"])]
 
+                scan_id = re.search(".*?\.\d+\.\d+(?=\.\d+\.dta)", header["TITLE"]).group()
+                if scan_id in self.scan_headers_dict:
+                    self.scan_headers_dict[scan_id].append(float(header["PEPMASS"]))
+                else:
+                    self.scan_headers_dict[scan_id] = [float(header["PEPMASS"])]
+                    
+                scan_charge_id = re.search(".*?\.\d+\.\d+\.\d+(?=\.dta)", header["TITLE"]).group()
+                if scan_charge_id in self.scan_charge_headers_dict:
+                    self.scan_charge_headers_dict[scan_charge_id].append(float(header["PEPMASS"]))
+                else:
+                    self.scan_charge_headers_dict[scan_charge_id] = [float(header["PEPMASS"])]
+        print(len(self.PSM_headers_dict))
+        print(len(self.scan_charge_headers_dict))
+        print(len(self.scan_headers_dict))
+
+        for k, v in self.PSM_headers_dict.items():
+            self.PSM_headers_dict[k] = SequentialSet(v)
+            self.PSM_headers_dict[k].set_relative_error(relative_error)
         for k, v in self.scan_headers_dict.items():
             self.scan_headers_dict[k] = SequentialSet(v)
-            self.scan_headers_dict[k].set_relative_error(relative_error)        
+            self.scan_headers_dict[k].set_relative_error(relative_error)
         for k, v in self.scan_charge_headers_dict.items():
             self.scan_charge_headers_dict[k] = SequentialSet(v)
-            self.scan_charge_headers_dict[k].set_relative_error(relative_error)
+            self.scan_charge_headers_dict[k].set_relative_error(relative_error)        
         return
 
     def __enter__(self):
