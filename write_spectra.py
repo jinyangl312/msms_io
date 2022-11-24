@@ -1,10 +1,17 @@
-from load_spectra import mgf_loader_unit
+from msms_io.load_spectra import mgf_loader_unit
 from pathlib import Path
 import tqdm
 from theoretical_peaks.AAMass import aamass
+import struct
 
 
-def write_mgf(writer, header, peaks):    
+# def write_pf2_header(path, nSpec, lenTitle, pf2title):
+#     with open(path, "wb") as f:
+#         f.write(struct.pack("2i", nSpec, lenTitle))
+#         f.write(struct.pack("%ds" % lenTitle, pf2title))
+
+
+def write_mgf(writer, header, peaks):
     '''
     Write a spectrum with @header and @peaks into @wf
     '''
@@ -15,7 +22,8 @@ def write_mgf(writer, header, peaks):
     if isinstance(peaks, str):
         writer.write(peaks)
     else:
-        processed_scan = ["{:.5f} {:.1f}".format(line[0], line[1]) for line in peaks]
+        processed_scan = ["{:.5f} {:.1f}".format(
+            line[0], line[1]) for line in peaks]
         writer.write('\n'.join(processed_scan))
         writer.write("\n")
 
@@ -26,7 +34,7 @@ def variate_mgf_precursor_mass(input_list_dir, output_dir):
     '''
     expand the mgf by adding precursor mass up to 2 Da lighter
     '''
-    
+
     input_list_dir = Path(input_list_dir)
     assert input_list_dir.is_dir()
 
@@ -41,5 +49,6 @@ def variate_mgf_precursor_mass(input_list_dir, output_dir):
                 for i in range(0, 3):
                     spec_info_new = spec_info.copy()
                     spec_info_new["TITLE"] = f'{spec_info_new["TITLE"].split(".dta")[0]}.{i}.dta'
-                    spec_info_new["PEPMASS"] = "{}".format(spec_info["PEPMASS"] - i * aamass.mass_isotope / charge)
+                    spec_info_new["PEPMASS"] = "{}".format(
+                        spec_info["PEPMASS"] - i * aamass.mass_isotope / charge)
                     write_mgf(fout, spec_info_new, peaks)
