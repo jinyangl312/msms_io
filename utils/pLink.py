@@ -4,11 +4,13 @@ import functools
 from theoretical_peaks.AAMass import aamass
 from .xl_utils import *
 from .utils import *
+import swifter
 
 
 def load_spectra_pL(res_path, evaluation_scaffold=False,
-    sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False,
-    filter_1_scan=False, keep_target=False):
+                    sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False,
+                    filter_1_scan=False, keep_target=False,
+                    keep_filtered=True, split_results=False):
     '''
     Load results from _spectra.csv text file from pLink results as pd.DataFrame
     '''
@@ -33,24 +35,8 @@ def load_spectra_pL(res_path, evaluation_scaffold=False,
     """
 
     spectra_file = pd.read_csv(res_path).fillna("")
-
-    if evaluation_scaffold:
-        spectra_file["_scan_id"] = spectra_file["Title"].apply(
-            lambda x: re.search("(?<=^).*?\.\d+\.\d+(?=\.\d+\.\d+\.dta\;?)", x).group())
-        spectra_file["_scan_charge_id"] = spectra_file["Title"].apply(
-            lambda x: re.search("(?<=^).*?\.\d+\.\d+\.\d+(?=\.\d+\.dta\;?)", x).group())
-        spectra_file["_PSM_id"] = spectra_file["Title"]
-        
-        spectra_file["_rp"] = spectra_file["Proteins"].apply(
-            lambda x: ";".join(set(
-                filter(not_empty, re.split("/", x)))))
-        spectra_file["_site"] = spectra_file["_rp"].apply(
-            lambda x: ";".join(set(
-                filter(not_empty, re.split(";|-", x)))))
-        spectra_file["_ppi"] = spectra_file["_rp"].apply(rmv_xl_site)
-        spectra_file["_protein"] = spectra_file["_ppi"].apply(
-            lambda x: ";".join(set(filter(not_empty,
-                [i.strip() for i in re.split(";|-", x)]))))
+    if len(spectra_file) == 0:
+        return spectra_file
 
     if keep_target:
         try:
@@ -58,10 +44,17 @@ def load_spectra_pL(res_path, evaluation_scaffold=False,
         except:
             pass
 
+    if "isFilterIn" in spectra_file.columns and keep_filtered:
+        try:
+            spectra_file = spectra_file[spectra_file["isFilterIn"] == 1]
+        except:
+            pass
+
     # Keep 1 PSM for 1 scan
     # from pzm
     if filter_1_scan:
-        spectra_file['raw_scan'] = spectra_file['Title'].apply(lambda x:'.'.join(x.split('.')[:-4]))
+        spectra_file['raw_scan'] = spectra_file['Title'].swifter.apply(
+            lambda x: '.'.join(x.split('.')[:-4]))
 
         ls_rawscan = []
         ls_1scan_filter = []
@@ -76,10 +69,10 @@ def load_spectra_pL(res_path, evaluation_scaffold=False,
                 ls_1scan_filter.append(1)
 
         spectra_file['1scan_filter'] = ls_1scan_filter
-        print('Droping duplicated PSMs in the same scan: ', len(spectra_file[spectra_file['1scan_filter']==0]))
-        spectra_file = spectra_file[spectra_file['1scan_filter']==1]
+        print('Droping duplicated PSMs in the same scan: ', len(
+            spectra_file[spectra_file['1scan_filter'] == 0]))
+        spectra_file = spectra_file[spectra_file['1scan_filter'] == 1]
         spectra_file.drop(columns=['raw_scan', '1scan_filter'], inplace=True)
-
 
     # Modification in pLink is not sorted by site order. Resort for comparison
     # between results from different search engine.
@@ -91,13 +84,43 @@ def load_spectra_pL(res_path, evaluation_scaffold=False,
             mods = re.split("\;", modification)
             return ";".join(sorted(mods, key=functools.cmp_to_key(compare_mods)))
 
-        spectra_file["Modifications"] = [sort_modifications_by_site(mod) for mod in spectra_file["Modifications"]]
-    
+        spectra_file["Modifications"] = [sort_modifications_by_site(
+            mod) for mod in spectra_file["Modifications"]]
+
     # alpha peptide in pLink is the peptide with higher quality. Resort by mass
     # for comparison between results from different search engine.
     if sort_alpha_beta:
-        spectra_file[["Peptide", "Modifications"]] = [sort_alpha_beta_order(row["Peptide"], row["Modifications"])
-            for _, row in spectra_file.iterrows()]
+        spectra_file["Peptide", "Modifications"] = spectra_file[["Peptide", "Modifications"]].swifter.apply(
+            lambda x: sort_alpha_beta_order(*x), axis=1)
+
+    if evaluation_scaffold:
+        spectra_file["_spectrum_id"] = spectra_file["Title"]
+        spectra_file["_scan_id"] = spectra_file["Title"].swifter.apply(
+            lambda x: re.search("(?<=^).*?\.\d+\.\d+(?=\.\d+\.\d+\.dta\;?)", x).group())
+        spectra_file["_scan_charge_id"] = spectra_file["Title"].swifter.apply(
+            lambda x: re.search("(?<=^).*?\.\d+\.\d+\.\d+(?=\.\d+\.dta\;?)", x).group())
+
+        spectra_file["_psm"] = spectra_file[["Peptide", "Charge", "Modifications", "_spectrum_id"]].swifter.apply(
+            tuple, axis=1)
+        spectra_file["_precursor"] = spectra_file[["Peptide", "Charge", "Modifications"]].swifter.apply(
+            tuple, axis=1)
+        spectra_file["_peptide"] = spectra_file[["Peptide", "Modifications"]].swifter.apply(
+            tuple, axis=1)
+        spectra_file["_sequence"] = spectra_file["Peptide"]
+
+        if spectra_file["Peptide_Type"][0] == 'Cross-Linked':
+            spectra_file["Proteins"] = spectra_file["Proteins"].map(sort_site_order)
+            
+        spectra_file["_rp"] = spectra_file["Proteins"].swifter.apply(
+            lambda x: ";".join(set(
+                filter(not_empty, re.split("/", x)))))
+        spectra_file["_site"] = spectra_file["_rp"].swifter.apply(
+            lambda x: ";".join(set(
+                filter(not_empty, re.split(";|(?<=\))\-", x)))))
+        spectra_file["_ppi"] = spectra_file["_rp"].swifter.apply(rmv_xl_site)
+        spectra_file["_protein"] = spectra_file["_rp"].swifter.apply(
+            lambda x: ";".join(set(filter(not_empty,
+                                          [rmv_xl_site(i.strip()) for i in re.split(";|(?<=\))\-", x)]))))
 
     # "Precursor_Mass" in pLink is the mass of precursor. Computer exp m/z
     # for comparison between results from different search engine.
@@ -106,7 +129,14 @@ def load_spectra_pL(res_path, evaluation_scaffold=False,
             lambda x, y: (x - aamass.mass_proton) / y + aamass.mass_proton,
             spectra_file["Peptide_Mass"], spectra_file["Charge"]))
 
-    return spectra_file
+    if "Peptide_Type" in spectra_file.columns and split_results:
+        return spectra_file[spectra_file["Peptide_Type"] == 0], \
+            spectra_file[spectra_file["Peptide_Type"] == 1], \
+            spectra_file[spectra_file["Peptide_Type"] == 2], \
+            spectra_file[spectra_file["Peptide_Type"] == 3], \
+            spectra_file
+    else:
+        return spectra_file
 
 
 def load_peptides_pL(res_path):
@@ -122,14 +152,14 @@ def load_peptides_pL(res_path):
 
     df = pd.read_csv(
         res_path,
-        names = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"])
-    
+        names=["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"])
+
     peptides_file = df[~df["A"].isna()][["A", "B", "C", "D", "E", "F"]]
     peptides_file.set_axis(
         df.iloc[0][["A", "B", "C", "D", "E", "F"]],
         axis=1, inplace=True)
-    peptides_file = peptides_file.drop(index=0).fillna("") 
-    
+    peptides_file = peptides_file.drop(index=0).fillna("")
+
     return peptides_file
 
 
@@ -143,17 +173,17 @@ def load_sites_pL(res_path):
     Protein_Order	Protein	Unique_Peptide_Number	Spectrum_Number	Protein_Type									
 	Spectrum_Order	Title	Charge	Precursor_Mass	Peptide	Peptide_Mass	Modifications	Evalue	Score	Precursor_Mass_Error(Da)	Precursor_Mass_Error(ppm)	Alpha_Evalue	Beta_Evalue
     """
-    
+
     df = pd.read_csv(
         res_path,
-        names = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"])
-    
+        names=["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"])
+
     sites_file = df[~df["A"].isna()][["A", "B", "C", "D", "E"]]
     sites_file.set_axis(
         df.iloc[0][["A", "B", "C", "D", "E"]],
         axis=1, inplace=True)
-    sites_file = sites_file.drop(index=0).fillna("") 
-    
+    sites_file = sites_file.drop(index=0).fillna("")
+
     return sites_file
 
 
@@ -161,31 +191,39 @@ def load_summary_pL(res_path):
     '''
     Read the .summary file in pLink results
     '''
-    
+
     # Read data from .summary
-    with open(res_path, "r") as f:        
+    with open(res_path, "r") as f:
         full_summary = f.read()
-    
+
     # Spectrum View
     summary = re.split("Spectrum View", full_summary)[1]
     all_spec_sum = re.search("(?<=Spectra: )\d+", summary).group()
-    valid_spec_sum = re.search("(?<=Spectra \(above threshold\): )\d+", summary).group()
-    invalid_spec_sum = re.search("(?<=Spectra \(below threshold and decoy\): )\d+", summary).group()
-    unknown_spec_sum = re.search("(?<=Spectra \(unknown\): )\d+", summary).group()
-    xl_spec_sum = re.search("(?<=Cross-Linked Spectra \(above threshold\): )\d+", summary).group()
-    loop_spec_sum = re.search("(?<=Loop-Linked Spectra \(above threshold\): )\d+", summary).group()
-    mono_spec_sum = re.search("(?<=Mono-Linked Spectra \(above threshold\): )\d+", summary).group()
-    regular_spec_sum = re.search("(?<=Regular Spectra \(above threshold\): )\d+", summary).group()
-    
+    valid_spec_sum = re.search(
+        "(?<=Spectra \(above threshold\): )\d+", summary).group()
+    invalid_spec_sum = re.search(
+        "(?<=Spectra \(below threshold and decoy\): )\d+", summary).group()
+    unknown_spec_sum = re.search(
+        "(?<=Spectra \(unknown\): )\d+", summary).group()
+    xl_spec_sum = re.search(
+        "(?<=Cross-Linked Spectra \(above threshold\): )\d+", summary).group()
+    loop_spec_sum = re.search(
+        "(?<=Loop-Linked Spectra \(above threshold\): )\d+", summary).group()
+    mono_spec_sum = re.search(
+        "(?<=Mono-Linked Spectra \(above threshold\): )\d+", summary).group()
+    regular_spec_sum = re.search(
+        "(?<=Regular Spectra \(above threshold\): )\d+", summary).group()
+
     # Peptide View
     summary = re.split("Peptide View \(above threshold\)", full_summary)[1]
     xl_pep_sum = re.search("(?<=Cross-Linked Peptides: )\d+", summary).group()
     loop_pep_sum = re.search("(?<=Loop-Linked Peptides: )\d+", summary).group()
     mono_pep_sum = re.search("(?<=Mono-Linked Peptides: )\d+", summary).group()
     regular_pep_sum = re.search("(?<=Regular Peptides: )\d+", summary).group()
-    
+
     # Linked Sites View
-    summary = re.split("Linked Sites View \(above threshold\)", full_summary)[1]
+    summary = re.split(
+        "Linked Sites View \(above threshold\)", full_summary)[1]
     xl_site_sum = re.search("(?<=Cross-Linked Sites: )\d+", summary).group()
     loop_site_sum = re.search("(?<=Loop-Linked Sites: )\d+", summary).group()
 
@@ -210,4 +248,3 @@ def load_summary_pL(res_path):
         "time": float(time_cost),
         "full_summary": full_summary
     }
-    
