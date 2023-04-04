@@ -138,6 +138,9 @@ def load_precursor_xi(res_path, evaluation_scaffold=False, is_xl=True,
     """
 
     spectra_file = pd.read_csv(res_path).fillna("")
+    if len(spectra_file) == 0:
+        return spectra_file
+        
     spectra_file = spectra_file[~spectra_file['isDecoy']]
 
     if format_modification_linksite:
@@ -190,7 +193,7 @@ def load_precursor_xi(res_path, evaluation_scaffold=False, is_xl=True,
             spectra_file['Peptide_Type'] = 'Cross-Linked'
             spectra_file['Protein_Type'] = spectra_file['fdrGroup'].map(lambda x:
                                                                         'Intra-Protein' if 'Self ' in x else 'Inter-Protein')
-            output_prefix = f"data/fmindex_tmp/{pathlib.Path(fasta_path).stem}/fasta.rev.fm"
+            output_prefix = f"data/fmindex_tmp/{pathlib.Path(fasta_path).stem}/with_decoy/fasta.rev.fm"
             if not pathlib.Path(output_prefix).parent.exists():
                 pathlib.Path(output_prefix).parent.mkdir(
                     exist_ok=True, parents=True)
@@ -237,7 +240,7 @@ def load_precursor_xi(res_path, evaluation_scaffold=False, is_xl=True,
 
         # scripts for synthesis peptides
         if is_xl and syn_path != None:
-            output_prefix = f"data/fmindex_tmp/{pathlib.Path(syn_path).stem}/fasta.rev.fm"
+            output_prefix = f"data/fmindex_tmp/{pathlib.Path(syn_path).stem}/syn/fasta.fm"
             if not pathlib.Path(output_prefix).parent.exists():
                 pathlib.Path(output_prefix).parent.mkdir(
                     exist_ok=True, parents=True)
@@ -246,23 +249,19 @@ def load_precursor_xi(res_path, evaluation_scaffold=False, is_xl=True,
                         (item.description, item.sequence.replace("I", "L")) for item in db]
                 fasta.write(transferred_data, syn_path.replace(
                     ".fasta", ".I2L.fasta"), file_mode="w")
-                fasta.write_decoy_db(syn_path.replace(".fasta", ".I2L.fasta"),
-                                     syn_path.replace(
-                    ".fasta", ".I2L.rev.fasta"),
-                    prefix="REV_",
-                    mode="reverse",
-                    file_mode="w",
-                )
 
                 print("Cleaning tmp files...")
                 for file in pathlib.Path().rglob(f'{output_prefix}.*'):
                     os.remove(file)
                 fmindex_encode(syn_path.replace(
-                    ".fasta", ".I2L.rev.fasta"), output_prefix)
+                    ".fasta", ".I2L.fasta"), output_prefix)
 
             fm_decoder = FMIndexDecoder(output_prefix)
             spectra_file["in_syn_db"] = spectra_file["Peptide"].swifter.apply(
-                lambda x: False if find_xl_seq_in_fasta_db(x, fm_decoder) == "" else True)
+                lambda x: is_xl_seq_in_same_syn_group(x, fm_decoder))
+            # Trap DB!
+            # spectra_file["in_syn_db"] = spectra_file["Peptide"].swifter.apply(
+            #     lambda x: False if find_xl_seq_in_fasta_db(x, fm_decoder) == "" else True)
     return spectra_file
 
 

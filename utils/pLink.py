@@ -5,12 +5,18 @@ from theoretical_peaks.AAMass import aamass
 from .xl_utils import *
 from .utils import *
 import swifter
+import pathlib
+from pyteomics.pyteomics import fasta
+from fasta_scripts.SeqAn_pybinder import fmindex_encode, FMIndexDecoder
+import os
+from fasta_scripts.find_protein import *
 
 
 def load_spectra_pL(res_path, evaluation_scaffold=False,
                     sort_modifications=False, sort_alpha_beta=False, calc_exp_mz=False,
                     filter_1_scan=False, keep_target=False,
-                    keep_filtered=True, split_results=False):
+                    keep_filtered=True, split_results=False,
+                    syn_path=None):
     '''
     Load results from _spectra.csv text file from pLink results as pd.DataFrame
     '''
@@ -109,8 +115,9 @@ def load_spectra_pL(res_path, evaluation_scaffold=False,
         spectra_file["_sequence"] = spectra_file["Peptide"]
 
         if spectra_file["Peptide_Type"][0] == 'Cross-Linked':
-            spectra_file["Proteins"] = spectra_file["Proteins"].map(sort_site_order)
-            
+            spectra_file["Proteins"] = spectra_file["Proteins"].map(
+                sort_site_order)
+
         spectra_file["_rp"] = spectra_file["Proteins"].swifter.apply(
             lambda x: ";".join(set(
                 filter(not_empty, re.split("/", x)))))
@@ -128,6 +135,37 @@ def load_spectra_pL(res_path, evaluation_scaffold=False,
         spectra_file[["exp m/z"]] = list(map(
             lambda x, y: (x - aamass.mass_proton) / y + aamass.mass_proton,
             spectra_file["Peptide_Mass"], spectra_file["Charge"]))
+
+    # scripts for synthesis peptides
+    if syn_path != None:
+        output_prefix = f"data/fmindex_tmp/{pathlib.Path(syn_path).stem}/syn/fasta.fm"
+        if not pathlib.Path(output_prefix).parent.exists():
+            pathlib.Path(output_prefix).parent.mkdir(
+                exist_ok=True, parents=True)
+            with fasta.read(syn_path) as db:
+                transferred_data = [
+                    (item.description, item.sequence.replace("I", "L")) for item in db]
+            fasta.write(transferred_data, syn_path.replace(
+                ".fasta", ".I2L.fasta"), file_mode="w")
+
+            print("Cleaning tmp files...")
+            for file in pathlib.Path().rglob(f'{output_prefix}.*'):
+                os.remove(file)
+            fmindex_encode(syn_path.replace(
+                ".fasta", ".I2L.fasta"), output_prefix)
+
+        fm_decoder = FMIndexDecoder(output_prefix)
+        if spectra_file["Peptide_Type"][0] == 'Cross-Linked':
+            spectra_file["in_syn_db"] = spectra_file["Peptide"].swifter.apply(
+                lambda x: is_xl_seq_in_same_syn_group(x, fm_decoder))
+                
+        # Trap DB!
+        # if spectra_file["Peptide_Type"][0] == 'Cross-Linked':
+        #     spectra_file["in_syn_db"] = spectra_file["Peptide"].swifter.apply(
+        #         lambda x: False if find_xl_seq_in_fasta_db(x, fm_decoder) == "" else True)
+        # else:
+        #     spectra_file["in_syn_db"] = spectra_file["Peptide"].swifter.apply(
+        #         lambda x: False if len(find_seq_in_fasta_db(rmv_xl_site(x), 0, fm_decoder)) == 0 else True)
 
     if "Peptide_Type" in spectra_file.columns and split_results:
         return spectra_file[spectra_file["Peptide_Type"] == 0], \
