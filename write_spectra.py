@@ -2,7 +2,7 @@ from msms_io.load_spectra import mgf_loader_unit
 from pathlib import Path
 import tqdm
 from theoretical_peaks.AAMass import aamass
-import struct
+import re
 
 
 # def write_pf2_header(path, nSpec, lenTitle, pf2title):
@@ -27,7 +27,7 @@ def write_mgf(writer, header, peaks):
         writer.write('\n'.join(processed_scan))
         writer.write("\n")
 
-    writer.write("END IONS\n\n")
+    writer.write("END IONS\n")
 
 
 def variate_mgf_precursor_mass(input_list_dir, output_dir):
@@ -52,3 +52,22 @@ def variate_mgf_precursor_mass(input_list_dir, output_dir):
                     spec_info_new["PEPMASS"] = "{}".format(
                         spec_info["PEPMASS"] - i * aamass.mass_isotope / charge)
                     write_mgf(fout, spec_info_new, peaks)
+
+
+def add_scans_for_xi(input_list_dir, output_dir):
+    '''
+    Add scan header for xi
+    '''
+
+    input_list_dir = Path(input_list_dir)
+    assert input_list_dir.is_dir()
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for path in tqdm.tqdm(input_list_dir.glob('*.mgf')):
+        with open(output_dir.joinpath(path.name), "w") as fout:
+            for spec_info, peaks in mgf_loader_unit(path):
+                spec_info["SCANS"] = re.search(
+                    "\d+(?=\.\d+\.\d+\.dta)", spec_info["TITLE"]).group()
+                write_mgf(fout, spec_info, peaks)
