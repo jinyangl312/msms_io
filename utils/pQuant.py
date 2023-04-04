@@ -1,4 +1,5 @@
 import pandas as pd
+import swifter
 
 
 def load_spectra_pQ(res_path):
@@ -16,7 +17,9 @@ def load_spectra_pQ(res_path):
     """
 
     spectra_file = pd.read_csv(res_path, delimiter="\t").fillna("")
-    spectra_file = spectra_file[spectra_file["Name_MS2"] != "Name_MS2"] # rmv redudant label line in pQuant results
-    spectra_file["Ratio_Sample2/Sample1"] = spectra_file["Ratio_Sample2/Sample1"].apply(float)
+    # rmv redudant label line in pQuant results
+    spectra_file = spectra_file[spectra_file["Name_MS2"] != "Name_MS2"]
+    spectra_file["Ratio_Sample2/Sample1"] = spectra_file["Ratio_Sample2/Sample1"].swifter.apply(
+        float)
 
     return spectra_file
