@@ -66,10 +66,40 @@ def sort_alpha_beta_order(mixed_peptide, mixed_modification):
     return mixed_peptide, mixed_modification
 
 
+def assemble_alpha_beta_peptides(seq1, seq2, site1, site2, mods1, mods2):
+    '''
+    Assemble two peptides into a cross-linked peptide.
+    Used in pFindLink
+    '''
+
+    mod_list_1 = []
+    if not mods1 == "":
+        for mod in re.split("\;", mods1.strip(";")):
+            # 24,Deamidated[N];33,Carbamidomethyl[C];
+            mod_site = int(re.search("\d+(?=\,)", mod).group())
+            mod_name = re.search("(?<=\,).+(?=$)", mod).group()
+            mod_list_1.append([mod_site, mod_name])
+    mod_list_2 = []
+    if not mods2 == "":
+        for mod in re.split("\;", mods2.strip(";")):
+            # 24,Deamidated[N];33,Carbamidomethyl[C];
+            mod_site = int(re.search("\d+(?=\,)", mod).group())
+            mod_name = re.search("(?<=\,).+(?=$)", mod).group()
+            mod_list_2.append([mod_site, mod_name])
+
+    new_mod_list = [f"{x[1]}({x[0]})" for x in mod_list_1] + \
+        [f"{x[1]}({x[0]+len(seq1)+3})" for x in mod_list_2]
+
+    return f'{seq1}({site1})-{seq2}({site2})', ";".join(new_mod_list)
+
+
 def sort_site_order(mixed_line):
     '''
     Rearrange the order of cross-linked sites.
     '''
+
+    if mixed_line == '':
+        return ''
 
     res = []
     for mixed_site in mixed_line.strip("/").split("/"):

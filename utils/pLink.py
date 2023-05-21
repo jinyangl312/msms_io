@@ -98,6 +98,7 @@ def load_spectra_pL(res_path, evaluation_scaffold=False,
     if sort_alpha_beta:
         spectra_file["Peptide", "Modifications"] = spectra_file[["Peptide", "Modifications"]].swifter.apply(
             lambda x: sort_alpha_beta_order(*x), axis=1)
+        # Note that site HAS NOT been sorted!
 
     if evaluation_scaffold:
         spectra_file["_spectrum_id"] = spectra_file["Title"]
@@ -158,7 +159,7 @@ def load_spectra_pL(res_path, evaluation_scaffold=False,
         if spectra_file["Peptide_Type"][0] == 'Cross-Linked':
             spectra_file["in_syn_db"] = spectra_file["Peptide"].swifter.apply(
                 lambda x: is_xl_seq_in_same_syn_group(x, fm_decoder))
-                
+
         # Trap DB!
         # if spectra_file["Peptide_Type"][0] == 'Cross-Linked':
         #     spectra_file["in_syn_db"] = spectra_file["Peptide"].swifter.apply(

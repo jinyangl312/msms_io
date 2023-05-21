@@ -2,6 +2,9 @@ import pandas as pd
 import re
 from .utils import *
 import functools
+import multiprocessing
+import os
+from pathlib import Path
 
 
 def convert_pF_mod_to_pL_mod(pFind_mod):
@@ -85,6 +88,72 @@ def load_spectra_pF(res_path, sort_modifications=False,
                 filter(not_empty, re.split("/", x)))))
 
     return spectra_file
+
+
+def load_res_pF(res_path, sort_modifications=False,
+                evaluation_scaffold=False, is_filtered=True, keep_target=True):
+    # def process_line(res_line):
+    #     def compare_mods(x, y):
+    #         return int(re.search("(?<=\()\d+(?=\))", x).group()) - int(re.search("(?<=\()\d+(?=\))", y).group())
+
+    #     def sort_modifications_by_site(modification):
+    #         mods = re.split("\;", modification)
+    #         return ";".join(sorted(mods, key=functools.cmp_to_key(compare_mods)))
+
+    #     res_list = res_line.strip('\n').split('\n')
+    #     mz = float(res_list[0].split('\t')[0])
+    #     charge = int(res_list[0].split('\t')[1])
+    #     msms_title = res_list[1]
+    #     PSM_list = res_list[2:]
+    #     if len(PSM_list) == 0:
+    #         return (msms_title, mz, charge, [])
+
+    #     PSM_list = [(x.split('\t')) for x in PSM_list]
+    #     PSM_res = []
+    #     for PSM_line in PSM_list:
+    #         sequence = PSM_line[1]
+    #         final_score = float(PSM_line[3])
+
+    #         modifications_num = int(PSM_line[6])
+    #         modifications = []
+    #         for i in range(modifications_num):
+    #             mod_site = int(PSM_line[7+2*i])
+    #             mod_type = PSM_line[8+2*i].strip('#0')
+    #             modifications.append(f'{mod_type}({mod_site})')
+
+    #         cleavage_type = int(PSM_line[7+2*modifications_num])
+    #         td_type = int(PSM_line[8+2*modifications_num])
+
+    #         PSM_res.append((sequence, sort_modifications_by_site(
+    #             ';'.join(modifications)), cleavage_type, td_type))
+
+    #     return (msms_title, mz, charge, PSM_res)
+
+    if os.path.exists(f"{res_path}.pyres.npy"):
+        return np.load(f"{res_path}.pyres.npy", allow_pickle=True)
+
+    with open(res_path) as f:
+        raw_text = f.read()
+
+    # all_info = [process_line(x) for x in raw_text.strip('S\t').split('\nS\t')]
+    with multiprocessing.Pool(int(os.cpu_count()/2)) as pool:
+        all_info = pool.map(
+            process_pFind_res_line, raw_text.strip('S\t').split('\nS\t'))
+
+    np.save(f"{res_path}.pyres.npy", all_info)
+
+    return all_info
+
+
+def load_res_pF_dir(res_dir):
+    res_dir = Path(res_dir)
+    assert res_dir.is_dir()
+
+    res_list = res_dir.glob('*.qry.res')
+    all_info = []
+    for res in res_list:
+        all_info.extend(load_res_pF(res))
+    return all_info
 
 
 def load_protein_pF(res_path, keep_filtered_only=True, keep_subset=True):
@@ -175,3 +244,7 @@ def load_summary_pF(res_path):
         "c_57_rate": float(c_57_rate.group()),
         "Precursor_Mean": float(Precursor_Mean.group())
     }, summary
+
+
+if __name__ == '__main__':
+    multiprocessing.freeze_support()
