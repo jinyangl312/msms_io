@@ -225,7 +225,7 @@ def load_whole_mgf(path_list, transform_peaks=True):
 
 
 class get_mgf_headers:
-    def __init__(self, path_list, relative_error=10e-6, mixed_spectra=True):
+    def __init__(self, path_list, relative_error=20e-6, mixed_spectra=True):
         '''
         Return a list of all headers contained in mgf.
         Can be used to check precursor evidence for results.
@@ -390,7 +390,7 @@ def load_whole_ms1_unit(path, transform_peaks=True):
 
 
 class load_whole_ms1:
-    def __init__(self, path_list, relative_error=10e-6, transform_peaks=True):
+    def __init__(self, path_list, relative_error=20e-6, transform_peaks=True):
         '''
         Return a dict for all experimental spectra from .mgf text file
         By default if @transform_peaks=True, mz and intensity arrays will be converted to float; otherwise they will be kept as a string.
