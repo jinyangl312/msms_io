@@ -3,10 +3,9 @@ import pandas as pd
 from .functions_xl import *
 from .functions import *
 from pyteomics.pyteomics import fasta
-from fasta_scripts.SeqAn_pybinder import fmindex_encode, FMIndexDecoder
-from fasta_scripts.find_protein import *
+from ..load_fasta import fmindex_encode, FMIndexDecoder
+from ..load_fasta import find_xl_seq_in_fasta_db, is_xl_seq_in_same_syn_group
 import os
-import swifter
 
 
 def convert_xi_seq_mod_site_format_to_pL_mixed_format_xl(row):

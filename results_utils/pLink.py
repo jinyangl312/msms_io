@@ -6,9 +6,8 @@ from .functions_xl import *
 from .functions import *
 import pathlib
 from pyteomics.pyteomics import fasta
-from fasta_scripts.SeqAn_pybinder import fmindex_encode, FMIndexDecoder
+from ..load_fasta import fmindex_encode, FMIndexDecoder, is_xl_seq_in_same_syn_group
 import os
-from fasta_scripts.find_protein import *
 
 
 def load_spectra_pL(res_path, evaluation_scaffold=False,

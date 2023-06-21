@@ -2,9 +2,7 @@ from pathlib import Path
 import tqdm
 from theoretical_peaks.AAMass import aamass
 import re
-import struct
 from .load_spectra import mgf_loader_unit
-import pathlib
 from .spectra_utils.mgf_to_pf2 import *
 
 
