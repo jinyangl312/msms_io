@@ -3,7 +3,7 @@ import os
 import re
 from pathlib import Path
 import numpy as np
-from peaks_scripts.sequence_set import SequentialSet
+from ..utils.sequence_set import SequentialSet
 
 
 def ms1_loader_unit(path, transform_peaks=True):
