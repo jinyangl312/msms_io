@@ -2,7 +2,7 @@ import pathlib
 import pandas as pd
 from .functions_xl import *
 from .functions import *
-from pyteomics.pyteomics import fasta
+from pyteomics import fasta
 from ..load_fasta import fmindex_encode, FMIndexDecoder
 from ..load_fasta import find_xl_seq_in_fasta_db, is_xl_seq_in_same_syn_group
 import os

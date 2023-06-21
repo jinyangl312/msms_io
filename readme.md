@@ -9,7 +9,5 @@
 `write_spectra.py`: Tools for the write of .mgf, the transfer from .mgf to .pf2
 
 ### Dependencies
-peaks_scripts
-theoretical_peaks
-pyteomics
-fasta_scripts
+[theoretical_peaks](https://github.com/jinyangl312/theoretical_peaks)
+[pyteomics](https://github.com/levitsky/pyteomics)
