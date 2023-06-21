@@ -1,5 +1,3 @@
-from ast import For
-from http.client import CONTINUE
 import tqdm
 import os
 import struct
@@ -22,7 +20,6 @@ def pf2_loader_unit(path):
         nSpec, lenTitle = struct.unpack("2i", f.read(8))
         pf2title = struct.unpack("%ds" % lenTitle, f.read(lenTitle))
 
-        #mpSpec = {}
         for _ in tqdm.tqdm(range(nSpec)):
             scan_no, = struct.unpack("i", f.read(4))
             nPeak, = struct.unpack("i", f.read(4))
@@ -62,7 +59,6 @@ def pf2_filter_by_title_dict(src_path, dest_path, nSpec_new, title_dict):
         fwrite.write(struct.pack("2i", nSpec_new, lenTitle))
         fwrite.write(fread.read(lenTitle))
 
-        #mpSpec = {}
         for _ in tqdm.tqdm(range(nSpec)):
             scan_no, = struct.unpack("i", fread.read(4))
             nPeak, = struct.unpack("i", fread.read(4))
@@ -230,22 +226,9 @@ class get_mgf_headers:
         Return a list of all headers contained in mgf.
         Can be used to check precursor evidence for results.
         '''
-        # May add temp here!
 
-        
         path_list = Path(path_list)
         assert path_list.is_dir()
-
-        # Can't pickle local object 'SequentialSet.set_relative_error.<locals>.<lambda>'
-        # if os.path.exists(f"{path_list}/scan_headers_dict_{relative_error}{mixed_spectra}.npy"):
-        #     print('Loading from tmp files...')
-        #     self.PSM_headers_dict = np.load(f"{path_list}/PSM_headers_dict_{relative_error}{mixed_spectra}.npy", allow_pickle=True).item()
-        #     self.scan_charge_headers_dict = np.load(f"{path_list}/scan_charge_headers_dict_{relative_error}{mixed_spectra}.npy", allow_pickle=True).item()
-        #     self.scan_headers_dict = np.load(f"{path_list}/scan_headers_dict_{relative_error}{mixed_spectra}.npy", allow_pickle=True).item()
-        #     print(len(self.PSM_headers_dict))
-        #     print(len(self.scan_charge_headers_dict))
-        #     print(len(self.scan_headers_dict))
-        #     return
 
         file_path_list = path_list.glob('*.mgf')
 
@@ -316,10 +299,7 @@ class get_mgf_headers:
         for k, v in self.scan_charge_headers_dict.items():
             self.scan_charge_headers_dict[k] = SequentialSet(v)
             self.scan_charge_headers_dict[k].set_relative_error(relative_error)
-            
-        # np.save(f"{path_list}/PSM_headers_dict_{relative_error}{mixed_spectra}.npy", self.PSM_headers_dict)
-        # np.save(f"{path_list}/scan_charge_headers_dict_{relative_error}{mixed_spectra}.npy", self.scan_charge_headers_dict)
-        # np.save(f"{path_list}/scan_headers_dict_{relative_error}{mixed_spectra}.npy", self.scan_headers_dict)
+
         return
 
     def __enter__(self):

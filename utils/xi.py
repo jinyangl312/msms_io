@@ -4,7 +4,6 @@ from .xl_utils import *
 from .utils import *
 from pyteomics.pyteomics import fasta
 from fasta_scripts.SeqAn_pybinder import fmindex_encode, FMIndexDecoder
-from evaluation_scripts.utils.utils_precursor import annote_precursor_table_fasta
 from fasta_scripts.find_protein import *
 import os
 import swifter
@@ -140,7 +139,7 @@ def load_precursor_xi(res_path, evaluation_scaffold=False, is_xl=True,
     spectra_file = pd.read_csv(res_path).fillna("")
     if len(spectra_file) == 0:
         return spectra_file
-        
+
     spectra_file = spectra_file[~spectra_file['isDecoy']]
 
     if format_modification_linksite:

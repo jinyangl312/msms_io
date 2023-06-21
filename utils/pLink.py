@@ -4,7 +4,6 @@ import functools
 from theoretical_peaks.AAMass import aamass
 from .xl_utils import *
 from .utils import *
-import swifter
 import pathlib
 from pyteomics.pyteomics import fasta
 from fasta_scripts.SeqAn_pybinder import fmindex_encode, FMIndexDecoder

@@ -1,4 +1,3 @@
-from msms_io.load_spectra import mgf_loader_unit
 from pathlib import Path
 import tqdm
 from theoretical_peaks.AAMass import aamass
@@ -9,16 +8,21 @@ import pathlib
 
 
 def transform_mgf_to_pf2(mgf_dir):
+    '''
+    Transfer all mgf files in @mgf_dir into corresponding pf2 and pf2idx files
+    '''
     if not isinstance(mgf_dir, list):
         mgf_dir = Path(mgf_dir)
         assert mgf_dir.is_dir()
-        mgf_list = mgf_dir.glob('*.mgf')
 
-    for mgf_path in tqdm.tqdm(mgf_list):
+    for mgf_path in tqdm.tqdm(mgf_dir.glob('*.mgf')):
         transform_mgf_to_pf2_unit(str(mgf_path))
 
 
 def transform_mgf_to_pf2_unit(mgf_path):
+    '''
+    Transfer @mgf_path into corresponding pf2 and pf2idx files
+    '''
     assert '_' in pathlib.Path(mgf_path).stem
     pf2idx_path = mgf_path.replace('.mgf', '.pf2idx')
     pf2_path = mgf_path.replace('.mgf', '.pf2')
@@ -75,7 +79,7 @@ def transform_mgf_to_pf2_unit(mgf_path):
 
 def write_mgf(writer, header, peaks):
     '''
-    Write a spectrum with @header and @peaks into @wf
+    Write a spectrum with @header and @peaks into @writer
     '''
 
     writer.write("BEGIN IONS\n")
@@ -94,7 +98,7 @@ def write_mgf(writer, header, peaks):
 
 def variate_mgf_precursor_mass(input_list_dir, output_dir):
     '''
-    expand the mgf by adding precursor mass up to 2 Da lighter
+    variate spectrum in mgf files in @input_list_dir by adding precursor mass up to 1 and 2 Da lighter
     '''
 
     input_list_dir = Path(input_list_dir)
@@ -118,7 +122,7 @@ def variate_mgf_precursor_mass(input_list_dir, output_dir):
 
 def add_scans_for_xi(input_list_dir, output_dir):
     '''
-    Add scan header for xi
+    Add scan header info for xi search
     '''
 
     input_list_dir = Path(input_list_dir)
