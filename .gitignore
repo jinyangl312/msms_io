@@ -1,3 +1,5 @@
 .git/
 __pycache__/
 *.ipynb
+demo_data/
+fmindex_tmp/
