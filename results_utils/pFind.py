@@ -1,6 +1,6 @@
 import pandas as pd
 import re
-from .utils import *
+from .functions import *
 import functools
 import multiprocessing
 import os

@@ -1,5 +1,5 @@
 import pandas as pd
-from .utils import *
+from .functions import *
 import functools
 import multiprocessing
 import os

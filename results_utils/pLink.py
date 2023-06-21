@@ -2,8 +2,8 @@ import pandas as pd
 import re
 import functools
 from theoretical_peaks.AAMass import aamass
-from .xl_utils import *
-from .utils import *
+from .functions_xl import *
+from .functions import *
 import pathlib
 from pyteomics.pyteomics import fasta
 from fasta_scripts.SeqAn_pybinder import fmindex_encode, FMIndexDecoder

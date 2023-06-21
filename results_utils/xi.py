@@ -1,7 +1,7 @@
 import pathlib
 import pandas as pd
-from .xl_utils import *
-from .utils import *
+from .functions_xl import *
+from .functions import *
 from pyteomics.pyteomics import fasta
 from fasta_scripts.SeqAn_pybinder import fmindex_encode, FMIndexDecoder
 from fasta_scripts.find_protein import *
