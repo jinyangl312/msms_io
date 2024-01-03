@@ -1,9 +1,9 @@
 from pathlib import Path
 import tqdm
-from theoretical_peaks.AAMass import aamass
+from msms_io.mass.AAMass import aamass
 import re
 from .load_spectra import mgf_loader_unit
-from .spectra_utils.mgf_to_pf2 import *
+from .mgf_to_pf2 import *
 
 
 def write_mgf(writer, header, peaks):

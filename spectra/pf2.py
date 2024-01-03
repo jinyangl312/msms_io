@@ -2,6 +2,7 @@ import tqdm
 import os
 import struct
 from pathlib import Path
+import numpy as np
 
 
 def pf2_loader_unit(path):
@@ -80,6 +81,21 @@ def load_whole_pf2(path_list):
     for path in tqdm.tqdm(path_list):
         for spec_info, peaks in pf2_loader_unit(path):
             mpSpec[spec_info["TITLE"]] = (spec_info, peaks)
+    return mpSpec
+
+
+def load_whole_pf2_unit(path):
+    '''
+    Return a dict for all spectra from all .pf2 binary files in @path_list
+    '''
+
+    if os.path.exists(f"{path}.npy"):
+        return np.load(f"{path}.npy", allow_pickle=True).item()
+
+    mpSpec = {}
+    for spec_info, peaks in pf2_loader_unit(path):
+        mpSpec[spec_info["TITLE"]] = (spec_info, peaks)
+    np.save(f"{path}.npy", mpSpec)
     return mpSpec
 
 

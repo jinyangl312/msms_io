@@ -1,8 +1,17 @@
 import re
-from theoretical_peaks.ion_calc import calc_pepmass
+from msms_io.mass.ion_calc import calc_pepmass
+import functools
 
 
-def sort_alpha_beta_order(mixed_peptide, mixed_modification):
+def sort_modification(modifications):
+    def compare_mods(x, y):
+        return int(re.search("(?<=\()\d+(?=\))", x).group()) - int(re.search("(?<=\()\d+(?=\))", y).group())
+
+    mods = re.split("\;", modifications)
+    return ";".join(sorted(mods, key=functools.cmp_to_key(compare_mods)))
+
+
+def sort_peptide_modification(mixed_peptide, mixed_modification):
     '''
     Rearrange the order of alpha and beta peptide. Rearrange modification at the same time.
     Used for the comparison between search engines.
@@ -20,7 +29,7 @@ def sort_alpha_beta_order(mixed_peptide, mixed_modification):
         Return True if the mod str of beta peptide is greater.
         '''
 
-        if mixed_modification == "":
+        if mixed_modification == "" or mixed_modification == "null":
             return False
 
         # Split mods
@@ -45,7 +54,7 @@ def sort_alpha_beta_order(mixed_peptide, mixed_modification):
                 int(site1) == int(site2) and (
                     compare_mixed_modification(mixed_modification, len(seq1)))))):  # but with greater modification
         # Rearrange modification for alpha and beta
-        if not mixed_modification == "":
+        if not (mixed_modification == "" or mixed_modification == "null"):
             new_mod_list_1 = []
             new_mod_list_2 = []
             for mod in re.split("\;", mixed_modification):
@@ -66,34 +75,7 @@ def sort_alpha_beta_order(mixed_peptide, mixed_modification):
     return mixed_peptide, mixed_modification
 
 
-def assemble_alpha_beta_peptides(seq1, seq2, site1, site2, mods1, mods2):
-    '''
-    Assemble two peptides into a cross-linked peptide.
-    Used in pFindLink
-    '''
-
-    mod_list_1 = []
-    if not mods1 == "":
-        for mod in re.split("\;", mods1.strip(";")):
-            # 24,Deamidated[N];33,Carbamidomethyl[C];
-            mod_site = int(re.search("\d+(?=\,)", mod).group())
-            mod_name = re.search("(?<=\,).+(?=$)", mod).group()
-            mod_list_1.append([mod_site, mod_name])
-    mod_list_2 = []
-    if not mods2 == "":
-        for mod in re.split("\;", mods2.strip(";")):
-            # 24,Deamidated[N];33,Carbamidomethyl[C];
-            mod_site = int(re.search("\d+(?=\,)", mod).group())
-            mod_name = re.search("(?<=\,).+(?=$)", mod).group()
-            mod_list_2.append([mod_site, mod_name])
-
-    new_mod_list = [f"{x[1]}({x[0]})" for x in mod_list_1] + \
-        [f"{x[1]}({x[0]+len(seq1)+3})" for x in mod_list_2]
-
-    return f'{seq1}({site1})-{seq2}({site2})', ";".join(new_mod_list)
-
-
-def sort_site_order(mixed_line):
+def sort_rp(mixed_line):
     '''
     Rearrange the order of cross-linked sites.
     '''
@@ -121,7 +103,7 @@ def sort_site_order(mixed_line):
     return "".join(res)
 
 
-def sort_protein_order(mixed_line):
+def sort_protein(mixed_line):
     '''
     Rearrange the order of cross-linked proteins.
     '''
@@ -143,15 +125,3 @@ def sort_protein_order(mixed_line):
 
     return "".join(res)
 
-
-def split_xl_protein(proteins_line):
-    return re.sub("\-", "/", proteins_line)
-
-
-def rmv_xl_site(proteins_line):
-    return re.sub("\(\d+\)", "", proteins_line)
-
-
-def is_intra_protein(mixed_protein):
-    line = re.split("\-\/", mixed_protein)
-    return line[0] == line[1]

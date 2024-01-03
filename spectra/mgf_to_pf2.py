@@ -1,9 +1,10 @@
 import tqdm
-from theoretical_peaks.AAMass import aamass
+from msms_io.mass.AAMass import aamass
 import re
 import struct
 from ..load_spectra import mgf_loader_unit
 import pathlib
+import os
 
 
 def transform_mgf_to_pf2(mgf_dir):
@@ -28,6 +29,10 @@ def transform_mgf_to_pf2_unit(mgf_path):
     pf2idx_path = mgf_path.replace('.mgf', '.pf2idx')
     pf2_path = mgf_path.replace('.mgf', '.pf2')
     pf2title = pathlib.Path('_'.join(mgf_path.split('_')[:-1])).stem
+
+    if os.path.exists(pf2idx_path) and os.path.exists(pf2_path):
+        print('skipping pf2')
+        return
 
     mgf_loader = mgf_loader_unit(mgf_path, transform_peaks=True)
 

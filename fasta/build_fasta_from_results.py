@@ -1,5 +1,4 @@
 from pyteomics.fasta import FASTA, write
-from evaluation_scripts.utils.utils_protein import build_protein_set_from_protein_table
 import pandas as pd
 
 

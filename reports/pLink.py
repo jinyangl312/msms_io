@@ -1,13 +1,15 @@
 import pandas as pd
 import re
 import functools
-from theoretical_peaks.AAMass import aamass
+from msms_io.mass.AAMass import aamass
 from .functions_xl import *
 from .functions import *
 import pathlib
 from pyteomics import fasta
-from ..load_fasta import fmindex_encode, FMIndexDecoder, is_xl_seq_in_same_syn_group
+from msms_io.fasta.fasta_toolbox import encode_esa, DecoderEsa
+from msms_io.fasta.find_protein import is_xl_seq_in_same_syn_group
 import os
+from msms_io.reports.sort_order import sort_modification, sort_peptide_modification, sort_rp
 
 
 def load_spectra_pL(res_path, evaluation_scaffold=False,
@@ -150,10 +152,10 @@ def load_spectra_pL(res_path, evaluation_scaffold=False,
             print("Cleaning tmp files...")
             for file in pathlib.Path().rglob(f'{output_prefix}.*'):
                 os.remove(file)
-            fmindex_encode(syn_path.replace(
+            encode_esa(syn_path.replace(
                 ".fasta", ".I2L.fasta"), output_prefix)
 
-        fm_decoder = FMIndexDecoder(output_prefix)
+        fm_decoder = DecoderEsa(output_prefix)
         if spectra_file["Peptide_Type"][0] == 'Cross-Linked':
             spectra_file["in_syn_db"] = spectra_file["Peptide"].swifter.apply(
                 lambda x: is_xl_seq_in_same_syn_group(x, fm_decoder))
@@ -174,6 +176,23 @@ def load_spectra_pL(res_path, evaluation_scaffold=False,
             spectra_file
     else:
         return spectra_file
+
+
+def pLink_reformat(inpath):
+    if pathlib.Path(inpath).with_suffix('.pLink.csv').exists():
+        return
+
+    df_plink = pd.read_csv(inpath)
+    print('======Total Spec Number:', df_plink.shape[0])
+
+    df_plink['Modifications'] = df_plink['Modifications'].fillna('').map(sort_modification)
+    df_plink['Peptide'] = df_plink['Peptide'].map(lambda x: x.replace("I", "L"))
+    df_plink[['Peptide', 'Modifications']] = list(df_plink[['Peptide', 'Modifications']].apply(
+        lambda x: sort_peptide_modification(*x), axis=1))
+    df_plink['Proteins'] = df_plink['Proteins'].map(sort_rp)
+
+    df_plink = df_plink.fillna(0)
+    df_plink.to_csv(pathlib.Path(inpath).with_suffix('.pLink.csv'), index=False)
 
 
 def load_peptides_pL(res_path):

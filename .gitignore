@@ -1,5 +1,4 @@
 .git/
 __pycache__/
-*.ipynb
 FMIndex_demo_data/
 fmindex_tmp/

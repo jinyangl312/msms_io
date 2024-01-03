@@ -2,6 +2,9 @@ import pandas as pd
 import re
 import numpy as np
 import functools
+from msms_io.fasta.fasta_toolbox import encode_esa, DecoderEsa
+import pathlib
+from pyteomics import fasta
 
 
 def not_empty(s):
@@ -46,7 +49,9 @@ def process_pFind_res_line(res_line):
     PSM_res = []
     for PSM_line in PSM_list:
         sequence = PSM_line[1].replace('I', 'L')
-        final_score = float(PSM_line[3])
+        raw_score = float(PSM_line[3])
+        final_score = float(PSM_line[4])
+        q_value = float(PSM_line[5])
 
         modifications_num = int(PSM_line[6])
         modifications = []
@@ -59,6 +64,6 @@ def process_pFind_res_line(res_line):
         td_type = int(PSM_line[8+2*modifications_num])
 
         PSM_res.append((sequence, sort_modifications_by_site(
-            ''.join(modifications)), cleavage_type, td_type))
+            ''.join(modifications)), cleavage_type, td_type, raw_score, final_score, q_value))
 
     return (msms_title, mz, charge, PSM_res)
