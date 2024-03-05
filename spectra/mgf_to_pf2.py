@@ -2,7 +2,7 @@ import tqdm
 from msms_io.mass.AAMass import aamass
 import re
 import struct
-from ..load_spectra import mgf_loader_unit
+from msms_io.spectra.mgf import mgf_loader_unit
 import pathlib
 import os
 

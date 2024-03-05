@@ -3,7 +3,7 @@ import os
 import re
 from pathlib import Path
 import numpy as np
-from ..tools.sequence_set import SequentialSet
+from msms_io.tools.sequence_set import SequentialSet
 
 
 def mgf_loader_unit(path, transform_peaks=True):
